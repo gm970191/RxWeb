@@ -1,0 +1,8 @@
+# 后端依赖（Flask）
+Flask
+Flask-SQLAlchemy
+
+# 若使用其他库，请按需添加
+# 例如：
+# requests
+# pandas
