@@ -1,0 +1,20 @@
+# 构建镜像时不要把这些东西塞进去（减小体积、避免把 Windows 虚拟环境带进 Linux 镜像）
+.git
+.gitignore
+.venv
+backend/venv
+frontend/node_modules
+frontend/dist
+frontend/cypress
+frontend/cypress.config.cjs
+docs
+*.md
+pack-deploy.ps1
+RxWeb-deploy.zip
+.deploy-stage
+logs
+rxweb.pid
+company.db
+__pycache__
+*.pyc
+.cursor
