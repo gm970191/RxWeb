@@ -16,7 +16,8 @@ deploy/machines.env
 /build
 frontend/dist/
 
-# 忽略本机/服务器虚拟环境（Windows 的 venv 不能拿到 Linux 上用）
+# 忽略本机误生成的单站点种子副本。正式文件在 deploy/sites/<站点>/seed_data.py
+backend/site_seed.py
 backend/venv/
 .venv/
 

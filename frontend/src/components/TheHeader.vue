@@ -2,7 +2,7 @@
   <el-header class="header">
     <router-link to="/" class="logo" @click="mobileOpen = false">
       <span class="logo-mark"></span>
-      瑞学软件
+      {{ site.shortName }}
     </router-link>
     <el-menu mode="horizontal" :router="true" :default-active="activeMenu" class="nav-menu desktop-nav">
       <el-menu-item v-for="item in navItems" :key="item.path" :index="item.path">
@@ -71,6 +71,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { site } from '../site'
 
 const route = useRoute()
 const auth = useAuthStore()

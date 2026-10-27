@@ -3,13 +3,26 @@
     <div>
       <a href="#">友情链接1</a> | <a href="#">友情链接2</a> | <router-link to="/login">登录</router-link>
     </div>
-    <div>&copy; 2024 瑞学软件有限公司. All Rights Reserved. (备案信息)</div>
+    <div>&copy; {{ year }} {{ fullName }}. All Rights Reserved. ({{ beian }})</div>
   </el-footer>
 </template>
 
 <script>
+import { site } from '../site'
+
 export default {
   name: 'TheFooter',
+  computed: {
+    year() {
+      return site.copyrightYear
+    },
+    fullName() {
+      return site.fullName
+    },
+    beian() {
+      return site.beian
+    },
+  },
 };
 </script>
 

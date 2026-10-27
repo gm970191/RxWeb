@@ -31,7 +31,8 @@ param(
     [switch]$Stop,       # 停止后台进程
     [switch]$Status,     # 只查看状态，不启动
     [switch]$Help,       # 显示帮助
-    [int]$Port = 8001    # 网站端口，默认 8001（页面和 /api 同一个端口）
+    [int]$Port = 8001,   # 网站端口，默认 8001（页面和 /api 同一个端口）
+    [string]$Site = "ruixue"
 )
 
 # 出错立刻停下来，避免后面步骤在错误状态下继续跑
@@ -153,8 +154,9 @@ if ($Rebuild -or -not (Test-Path $VenvUvicorn)) {
 # 没有这个文件时，用 seed.py 写入演示数据（产品、新闻、下载）
 # -----------------------------------------------------------------------------
 if (-not (Test-Path $DbFile)) {
-    Write-Host "[info] company.db missing, seeding demo data..."
+    Write-Host "[info] company.db missing, seeding demo data for site $Site..."
     Push-Location $BackendDir
+    $env:SITE_ID = $Site
     & $VenvPython "seed.py"
     Pop-Location
 }
@@ -174,7 +176,8 @@ if ($needBuild) {
         Write-Host "[error] npm not found. Install Node.js, or copy frontend\dist from another machine."
         exit 1
     }
-    Write-Host "[info] building frontend..."
+    Write-Host "[info] building frontend for site $Site..."
+    $env:VITE_SITE_ID = $Site
     Push-Location $FrontendDir
     if (-not (Test-Path "node_modules")) {
         npm install

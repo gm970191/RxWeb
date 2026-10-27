@@ -33,9 +33,11 @@ async def lifespan(_app: FastAPI):
     yield
 
 
+SITE_NAME = (os.environ.get("SITE_NAME") or os.environ.get("RXWEB_SITE_NAME") or "官网").strip() or "官网"
+
 app = FastAPI(
-    title="瑞学软件-官网API",
-    description="瑞学软件有限公司官方网站的后端API服务。",
+    title=f"{SITE_NAME}-官网API",
+    description=f"{SITE_NAME}官方网站的后端API服务。",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -146,7 +148,7 @@ def read_root():
     index_file = os.path.join(DIST_DIR, "index.html")
     if os.path.isfile(index_file):
         return FileResponse(index_file)
-    return {"message": "欢迎访问瑞学软件后端API"}
+    return {"message": f"欢迎访问{SITE_NAME}后端API"}
 
 
 @app.post("/api/auth/login")
@@ -220,7 +222,7 @@ def forgot_password(payload: ForgotPasswordIn, request: Request):
         reset_url = f"{public_base_url(request)}/reset-password?token={raw}"
         emailed = send_email(
             email,
-            "瑞学软件 - 重置密码",
+            f"{SITE_NAME} - 重置密码",
             f"您好，请在 1 小时内打开以下链接重置密码：\n\n{reset_url}\n\n如果不是您本人操作，请忽略此邮件。",
         )
         write_log(

@@ -19,7 +19,8 @@ param(
     [switch]$Status,
     [switch]$Help,
     [int]$FrontendPort = 8001,
-    [int]$BackendPort = 18001
+    [int]$BackendPort = 18001,
+    [string]$Site = "ruixue"
 )
 
 $ErrorActionPreference = "Stop"
@@ -106,8 +107,9 @@ if (-not (Test-Path $VenvUvicorn)) {
 }
 
 if (-not (Test-Path $DbFile)) {
-    Write-Host "[info] company.db missing, seeding demo data..."
+    Write-Host "[info] company.db missing, seeding demo data for site $Site..."
     Push-Location $BackendDir
+    $env:SITE_ID = $Site
     & $VenvPython "seed.py"
     Pop-Location
 }
@@ -138,7 +140,8 @@ if (Test-DevBackendRunning) {
     Write-Host "[info] backend pid=$($proc.Id)  log: $LogFile"
 }
 
-Write-Host "[info] starting frontend http://127.0.0.1:${FrontendPort}"
+$env:VITE_SITE_ID = $Site
+Write-Host "[info] starting frontend http://127.0.0.1:${FrontendPort} site=$Site"
 Write-Host "[info] open browser: http://127.0.0.1:${FrontendPort}"
 Write-Host "[info] stop vite: Ctrl+C ; stop backend: .\start-dev.ps1 -Stop"
 

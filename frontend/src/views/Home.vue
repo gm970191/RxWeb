@@ -3,8 +3,8 @@
     <!-- Hero Section -->
     <div class="hero-section">
       <div class="hero-content">
-        <h1>欢迎来到瑞学软件</h1>
-        <p>我们致力于提供最前沿的软件解决方案，助力您的业务持续创新与增长。</p>
+        <h1>{{ site.heroTitle }}</h1>
+        <p>{{ site.heroLead }}</p>
         <el-button type="primary" size="large" @click="goToProducts">浏览产品</el-button>
       </div>
     </div>
@@ -49,6 +49,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { fetchProducts, getMockProducts } from '../services/productService'
 import { fetchNews, getMockNews } from '../services/newsService'
+import { site } from '../site'
 
 const router = useRouter()
 const featuredProducts = ref([])

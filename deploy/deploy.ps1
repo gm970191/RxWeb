@@ -57,6 +57,16 @@ function Get-CleanText {
     return $Text.Replace("`r", "").Replace("`n", "").Trim()
 }
 
+function Get-SeedValue {
+    param(
+        [string]$Text,
+        [string]$Name
+    )
+    $pattern = '(?m)^' + [regex]::Escape($Name) + '\s*=\s*[''"]([^''"]+)[''"]'
+    if ($Text -match $pattern) { return $Matches[1] }
+    return ""
+}
+
 function Get-EnvValue {
     param([string]$Name)
     $item = Get-Item -Path "Env:$Name" -ErrorAction SilentlyContinue
@@ -109,6 +119,8 @@ $AppPort = Get-EnvValue "${prefix}_APP_PORT"
 $Password = Get-EnvValue "${prefix}_PASS"
 if (-not $Password) { $Password = Get-EnvValue "DEPLOY_PASS" }
 $SiteTitle = Get-CleanText $(if ($env:SITE_NAME) { $env:SITE_NAME } else { $Site })
+$env:VITE_SITE_ID = $(if ($env:SITE_ID) { Get-CleanText $env:SITE_ID } else { $Site })
+$env:VITE_SITE_NAME = $SiteTitle
 
 $missing = @()
 if (-not $HostName) { $missing += "${prefix}_HOST" }
@@ -248,7 +260,7 @@ try {
         if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
             Raise-DeployError "找不到 npm。请安装 Node.js，或带 -NoBuild 使用已有 dist"
         }
-        Write-Info "构建前端 ..."
+        Write-Info ("构建前端（站点 {0}）..." -f $env:VITE_SITE_ID)
         Push-Location (Join-Path $Root "frontend")
         try {
             if (-not (Test-Path "node_modules")) {
@@ -274,6 +286,8 @@ try {
     Get-ChildItem $backendSrc -Recurse -File | Where-Object {
         $_.FullName -notmatch '\\venv\\' -and
         $_.FullName -notmatch '\\__pycache__\\' -and
+        $_.FullName -notmatch '\\seed_data\\' -and
+        $_.Name -ne "site_seed.py" -and
         $_.Extension -ne ".pyc" -and
         $_.Extension -ne ".db"
     } | ForEach-Object {
@@ -285,6 +299,17 @@ try {
         }
         Copy-Item $_.FullName $dest
     }
+    $seedSrc = Join-Path $SiteDir "seed_data.py"
+    if (-not (Test-Path $seedSrc)) {
+        Raise-DeployError ("找不到该站点的种子数据 {0}" -f $seedSrc)
+    }
+    $seedText = Get-Content -Raw -Encoding utf8 $seedSrc
+    $siteIdPattern = 'SITE_ID\s*=\s*[''"]' + [regex]::Escape($env:VITE_SITE_ID) + '[''"]'
+    if ($seedText -notmatch $siteIdPattern) {
+        Raise-DeployError ("种子文件的 SITE_ID 不是 {0}" -f $env:VITE_SITE_ID)
+    }
+    Copy-Item $seedSrc (Join-Path $stage "backend\site_seed.py")
+    Write-Info ("只上传该站点的种子数据 {0}" -f $seedSrc)
     Copy-Item -Recurse -Force (Join-Path $Root "frontend\dist\*") (Join-Path $stage "frontend\dist\")
     $runtimeLines = New-Object System.Collections.Generic.List[string]
     $runtimeSrc = Join-Path $SiteDir "runtime.env"
@@ -292,7 +317,7 @@ try {
         Get-Content -Path $runtimeSrc -Encoding utf8 | ForEach-Object {
             $line = Get-CleanText $_
             if (-not $line) { return }
-            if ($line.StartsWith("PORT=") -or $line.StartsWith("PUBLIC_BASE_URL=")) { return }
+            if ($line.StartsWith("PORT=") -or $line.StartsWith("PUBLIC_BASE_URL=") -or $line.StartsWith("SITE_ID=") -or $line.StartsWith("SITE_NAME=") -or $line.StartsWith("RXWEB_ADMIN_EMAIL=") -or $line.StartsWith("RXWEB_USER_EMAIL=")) { return }
             $runtimeLines.Add($line)
         }
         Write-Info "将一并上传该站点 runtime.env（SMTP 等），并按本次目标写入端口"
@@ -302,6 +327,15 @@ try {
     $runtimeBody = New-Object System.Collections.Generic.List[string]
     $runtimeBody.Add("PORT=$AppPort")
     $runtimeBody.Add("PUBLIC_BASE_URL=http://${HostName}:${AppPort}")
+    $runtimeBody.Add("SITE_ID=$($env:VITE_SITE_ID)")
+    $runtimeBody.Add("SITE_NAME=$(Quote-BashSingle $SiteTitle)")
+    $adminEmail = Get-SeedValue $seedText "admin_email"
+    $userEmail = Get-SeedValue $seedText "user_email"
+    if (-not $adminEmail -or -not $userEmail) {
+        Raise-DeployError "种子文件缺少 admin_email 或 user_email"
+    }
+    $runtimeBody.Add("RXWEB_ADMIN_EMAIL=$adminEmail")
+    $runtimeBody.Add("RXWEB_USER_EMAIL=$userEmail")
     foreach ($line in $runtimeLines) { $runtimeBody.Add($line) }
     $utf8 = New-Object System.Text.UTF8Encoding $false
     [System.IO.File]::WriteAllLines((Join-Path $stage "runtime.env"), $runtimeBody, $utf8)
@@ -345,7 +379,7 @@ try {
     Write-Info "远程解压（不覆盖 company.db / .venv / logs）..."
     $extract = @(
         ("mkdir -p {0} {1} {2}" -f (Quote-BashSingle $RemotePath), (Quote-BashSingle "$RemotePath/backend"), (Quote-BashSingle "$RemotePath/frontend"))
-        ("rm -rf {0}" -f (Quote-BashSingle "$RemotePath/frontend/dist"))
+        ("rm -rf {0} {1} {2}" -f (Quote-BashSingle "$RemotePath/frontend/dist"), (Quote-BashSingle "$RemotePath/backend/seed_data"), (Quote-BashSingle "$RemotePath/backend/app/__pycache__"))
         ("tar -xzf {0} -C {1}" -f (Quote-BashSingle $remoteTar), (Quote-BashSingle $RemotePath))
         ("rm -f {0}" -f (Quote-BashSingle $remoteTar))
         ('sed -i ''s/\r$//'' {0}' -f (Quote-BashSingle "$RemotePath/start.sh"))
@@ -365,7 +399,7 @@ try {
 
     if ($Reseed) {
         Write-Info "按 seed.py 重写远程演示数据（会覆盖 company.db 中的产品和新闻）..."
-        $seedCmd = ('cd {0} && python3 backend/seed.py' -f (Quote-BashSingle $RemotePath))
+        $seedCmd = ('cd {0} && SITE_ID={1} python3 backend/seed.py' -f (Quote-BashSingle $RemotePath), (Quote-BashSingle $env:VITE_SITE_ID))
         Invoke-Remote $seedCmd
     }
 

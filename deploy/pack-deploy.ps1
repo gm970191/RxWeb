@@ -1,5 +1,5 @@
-# Build production zip (backend + frontend/dist only).
-#   pwsh -File .\deploy\pack-deploy.ps1
+# Build one site's production zip (backend + that site's seed + frontend/dist).
+#   pwsh -File .\deploy\pack-deploy.ps1 --site aierde
 
 $ErrorActionPreference = "Stop"
 $DeployDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -15,5 +15,5 @@ if (-not $py) {
     throw "python not found. Install Python and add it to PATH."
 }
 
-& $py (Join-Path $DeployDir "pack-deploy.py")
+& $py (Join-Path $DeployDir "pack-deploy.py") @args
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

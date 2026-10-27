@@ -16,6 +16,7 @@
 #   bash deploy/deploy.sh --site aierde --dry-run
 #   bash deploy/deploy.sh --site aierde --setup-key
 #   bash deploy/deploy.sh --site aierde --skip-restart
+#   bash deploy/deploy.sh --site aierde --reseed
 #
 # 站点地址、目录、端口：deploy/sites/<站点>/site.env
 # SSH 口令：deploy/machines.env（不要提交）
@@ -32,6 +33,7 @@ NO_BUILD=0
 DRY_RUN=0
 SETUP_KEY=0
 SKIP_RESTART=0
+RESEED=0
 SITE=""
 TARGET="debug"
 
@@ -49,6 +51,7 @@ while [[ $# -gt 0 ]]; do
     --dry-run) DRY_RUN=1; shift ;;
     --setup-key) SETUP_KEY=1; shift ;;
     --skip-restart) SKIP_RESTART=1; shift ;;
+    --reseed) RESEED=1; shift ;;
     --help|-h)
       sed -n '2,24p' "$0"
       exit 0
@@ -239,7 +242,9 @@ if [[ "$NO_BUILD" -eq 1 ]]; then
   echo "[info] 跳过构建，使用已有 frontend/dist"
 else
   need_cmd npm
-  echo "[info] 构建前端 ..."
+  export VITE_SITE_ID="${SITE_ID:-$SITE}"
+  export VITE_SITE_NAME="${SITE_NAME:-$SITE}"
+  echo "[info] 构建前端（站点 ${VITE_SITE_ID}）..."
   if [[ ! -d "$ROOT/frontend/node_modules" ]]; then
     (cd "$ROOT/frontend" && npm install)
   fi
@@ -260,8 +265,18 @@ cp "$ROOT/start.sh" "$STAGE/start.sh"
 {
   echo "PORT=${APP_PORT}"
   echo "PUBLIC_BASE_URL=http://${DEPLOY_HOST}:${APP_PORT}"
+  echo "SITE_ID=${SITE_ID:-$SITE}"
+  printf 'SITE_NAME=%q\n' "${SITE_NAME:-$SITE}"
+  admin_email="$(sed -nE "s/^admin_email[[:space:]]*=[[:space:]]*['\"]([^'\"]+)['\"].*/\\1/p" "$SITE_DIR/seed_data.py" | head -n 1)"
+  user_email="$(sed -nE "s/^user_email[[:space:]]*=[[:space:]]*['\"]([^'\"]+)['\"].*/\\1/p" "$SITE_DIR/seed_data.py" | head -n 1)"
+  if [[ -z "$admin_email" || -z "$user_email" ]]; then
+    echo "[error] 种子文件缺少 admin_email 或 user_email"
+    exit 1
+  fi
+  echo "RXWEB_ADMIN_EMAIL=${admin_email}"
+  echo "RXWEB_USER_EMAIL=${user_email}"
   if [[ -f "$SITE_DIR/runtime.env" ]]; then
-    grep -Ev '^[[:space:]]*(PORT|PUBLIC_BASE_URL)=' "$SITE_DIR/runtime.env" || true
+    grep -Ev '^[[:space:]]*(PORT|PUBLIC_BASE_URL|SITE_ID|SITE_NAME|RXWEB_ADMIN_EMAIL|RXWEB_USER_EMAIL)=' "$SITE_DIR/runtime.env" || true
   fi
 } > "$STAGE/runtime.env"
 
@@ -273,6 +288,8 @@ if command -v rsync >/dev/null 2>&1; then
     --exclude='*.pyc' \
     --exclude='.pytest_cache/' \
     --exclude='*.db' \
+    --exclude='seed_data/' \
+    --exclude='site_seed.py' \
     "$ROOT/backend/" "$STAGE/backend/"
   rsync -a --delete "$ROOT/frontend/dist/" "$STAGE/frontend/dist/"
 else
@@ -283,10 +300,23 @@ else
     --exclude='*.pyc' \
     --exclude='.pytest_cache' \
     --exclude='*.db' \
+    --exclude='seed_data' \
+    --exclude='site_seed.py' \
     -cf - . | tar -C "$STAGE/backend" -xf -
   tar -C "$ROOT/frontend/dist" -cf - . | tar -C "$STAGE/frontend/dist" -xf -
 fi
 
+SEED_SRC="$SITE_DIR/seed_data.py"
+if [[ ! -f "$SEED_SRC" ]]; then
+  echo "[error] 找不到该站点的种子数据 $SEED_SRC"
+  exit 1
+fi
+if ! grep -Eq "SITE_ID[[:space:]]*=[[:space:]]*['\"]${SITE_ID:-$SITE}['\"]" "$SEED_SRC"; then
+  echo "[error] 种子文件的 SITE_ID 不是 ${SITE_ID:-$SITE}"
+  exit 1
+fi
+cp "$SEED_SRC" "$STAGE/backend/site_seed.py"
+echo "[info] 只上传该站点的种子数据 $SEED_SRC"
 echo "[info] 将上传: start.sh, backend/, frontend/dist/"
 echo "[info] 不会上传: node_modules, .git, venv, company.db, 源码 src/"
 
@@ -328,6 +358,9 @@ fi
 # 远程：修换行符、停旧进程、启动
 # 注意：绝不会去动 company.db / .venv / logs
 # -----------------------------------------------------------------------------
+echo "[info] 去掉服务器上其他公司可能留下的种子目录 ..."
+ssh_run "rm -rf '$DEPLOY_PATH/backend/seed_data' '$DEPLOY_PATH/backend/app/__pycache__'"
+
 echo "[info] 修复 start.sh 换行符 ..."
 ssh_run "sed -i 's/\r$//' '$DEPLOY_PATH/start.sh' '$DEPLOY_PATH/runtime.env' && chmod +x '$DEPLOY_PATH/start.sh' && chmod 600 '$DEPLOY_PATH/runtime.env'"
 
@@ -338,6 +371,11 @@ fi
 
 echo "[info] 检查远程 Python ..."
 ssh_run "command -v python3 >/dev/null || (export DEBIAN_FRONTEND=noninteractive && apt-get update -y && apt-get install -y python3 python3-venv python3-pip)"
+
+if [[ "$RESEED" -eq 1 ]]; then
+  echo "[info] 按 seed.py 重写远程演示数据（会覆盖 company.db 中的产品和新闻）..."
+  ssh_run "cd '$DEPLOY_PATH' && SITE_ID='${SITE_ID:-$SITE}' python3 backend/seed.py"
+fi
 
 echo "[info] 重启服务 ..."
 ssh_run "bash '$DEPLOY_PATH/start.sh' --stop >/dev/null 2>&1 || true; bash '$DEPLOY_PATH/start.sh' --daemon"

@@ -7,9 +7,9 @@ DB_PATH = os.path.abspath(os.environ.get(
     os.path.join(os.path.dirname(__file__), "../../company.db"),
 ))
 
-DEFAULT_ADMIN_EMAIL = os.environ.get("RXWEB_ADMIN_EMAIL", "admin@rxweb.com")
+DEFAULT_ADMIN_EMAIL = os.environ.get("RXWEB_ADMIN_EMAIL", "").strip()
 DEFAULT_ADMIN_PASS = os.environ.get("RXWEB_ADMIN_PASS", "rxweb123")
-DEFAULT_USER_EMAIL = os.environ.get("RXWEB_USER_EMAIL", "user@rxweb.com")
+DEFAULT_USER_EMAIL = os.environ.get("RXWEB_USER_EMAIL", "").strip()
 DEFAULT_USER_PASS = os.environ.get("RXWEB_USER_PASS", "user123")
 
 
@@ -115,27 +115,29 @@ def init_schema():
         """
     )
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    c.execute(
-        "UPDATE users SET email = ? WHERE lower(email) = lower(?)",
-        (DEFAULT_ADMIN_EMAIL, "admin@rxweb.local"),
-    )
-    c.execute(
-        "UPDATE users SET email = ? WHERE lower(email) = lower(?)",
-        (DEFAULT_USER_EMAIL, "user@rxweb.local"),
-    )
-    c.execute(
-        "UPDATE messages SET email = ? WHERE lower(email) = lower(?)",
-        (DEFAULT_USER_EMAIL, "user@rxweb.local"),
-    )
-    if not c.execute("SELECT id FROM users WHERE lower(email) = lower(?)", (DEFAULT_ADMIN_EMAIL,)).fetchone():
+    if DEFAULT_ADMIN_EMAIL:
         c.execute(
-            "INSERT INTO users (email, password_hash, name, role, created_at) VALUES (?, ?, ?, 'admin', ?)",
-            (DEFAULT_ADMIN_EMAIL, hash_password(DEFAULT_ADMIN_PASS), "管理员", now),
+            "UPDATE users SET email = ? WHERE lower(email) = lower(?)",
+            (DEFAULT_ADMIN_EMAIL, "admin@rxweb.local"),
         )
-    if not c.execute("SELECT id FROM users WHERE lower(email) = lower(?)", (DEFAULT_USER_EMAIL,)).fetchone():
+        if not c.execute("SELECT id FROM users WHERE lower(email) = lower(?)", (DEFAULT_ADMIN_EMAIL,)).fetchone():
+            c.execute(
+                "INSERT INTO users (email, password_hash, name, role, created_at) VALUES (?, ?, ?, 'admin', ?)",
+                (DEFAULT_ADMIN_EMAIL, hash_password(DEFAULT_ADMIN_PASS), "管理员", now),
+            )
+    if DEFAULT_USER_EMAIL:
         c.execute(
-            "INSERT INTO users (email, password_hash, name, role, created_at) VALUES (?, ?, ?, 'user', ?)",
-            (DEFAULT_USER_EMAIL, hash_password(DEFAULT_USER_PASS), "演示用户", now),
+            "UPDATE users SET email = ? WHERE lower(email) = lower(?)",
+            (DEFAULT_USER_EMAIL, "user@rxweb.local"),
         )
+        c.execute(
+            "UPDATE messages SET email = ? WHERE lower(email) = lower(?)",
+            (DEFAULT_USER_EMAIL, "user@rxweb.local"),
+        )
+        if not c.execute("SELECT id FROM users WHERE lower(email) = lower(?)", (DEFAULT_USER_EMAIL,)).fetchone():
+            c.execute(
+                "INSERT INTO users (email, password_hash, name, role, created_at) VALUES (?, ?, ?, 'user', ?)",
+                (DEFAULT_USER_EMAIL, hash_password(DEFAULT_USER_PASS), "演示用户", now),
+            )
     conn.commit()
     conn.close()

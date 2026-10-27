@@ -1,7 +1,9 @@
-#!/usr/bin/env python3
-"""Build a production zip: backend + frontend/dist only. No Vue source, no company.db."""
+"""Build a production zip for one site: backend + that site's seed + frontend/dist."""
 from __future__ import annotations
 
+import argparse
+import os
+import re
 import shutil
 import subprocess
 import sys
@@ -21,25 +23,47 @@ def add_file(zf: zipfile.ZipFile, src: Path, arc: str) -> None:
 
 def add_tree(zf: zipfile.ZipFile, src_dir: Path, arc_prefix: str) -> None:
     for path in src_dir.rglob("*"):
-        if path.is_file():
-            rel = path.relative_to(src_dir).as_posix()
-            add_file(zf, path, f"{arc_prefix}/{rel}")
+        if not path.is_file():
+            continue
+        rel = path.relative_to(src_dir).as_posix()
+        if rel == "site_seed.py" or rel.startswith("seed_data/"):
+            continue
+        if "/__pycache__/" in f"/{rel}" or rel.endswith(".pyc"):
+            continue
+        add_file(zf, path, f"{arc_prefix}/{rel}")
 
 
-def build_frontend() -> None:
+def build_frontend(site: str) -> None:
     npm = shutil.which("npm")
     if not npm:
         raise SystemExit("[error] npm not found. Install Node.js, then pack again.")
-    print("[info] building frontend/dist ...")
+    print(f"[info] building frontend/dist for site {site} ...")
+    env = os.environ.copy()
+    env["VITE_SITE_ID"] = site
     if not (FRONTEND / "node_modules").is_dir():
-        subprocess.run([npm, "install"], cwd=FRONTEND, check=True)
-    subprocess.run([npm, "run", "build"], cwd=FRONTEND, check=True)
+        subprocess.run([npm, "install"], cwd=FRONTEND, check=True, env=env)
+    subprocess.run([npm, "run", "build"], cwd=FRONTEND, check=True, env=env)
     if not (DIST / "index.html").is_file():
         raise SystemExit("[error] frontend/dist/index.html missing after build")
 
 
 def main() -> int:
-    build_frontend()
+    parser = argparse.ArgumentParser(description="打包一家公司的发布文件")
+    parser.add_argument("--site", required=True, help="站点目录名，例如 aierde")
+    args = parser.parse_args()
+    site = args.site.strip()
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", site):
+        raise SystemExit("[error] 站点名只能使用字母、数字、下划线和连字符")
+
+    site_dir = DEPLOY_DIR / "sites" / site
+    seed = site_dir / "seed_data.py"
+    if not seed.is_file():
+        raise SystemExit(f"[error] 找不到该站点的种子数据 {seed}")
+    seed_text = seed.read_text(encoding="utf-8")
+    if not re.search(rf"SITE_ID\s*=\s*['\"]{re.escape(site)}['\"]", seed_text):
+        raise SystemExit(f"[error] 种子文件的 SITE_ID 不是 {site}")
+
+    build_frontend(site)
 
     required = [
         ROOT / "start.sh",
@@ -67,12 +91,14 @@ def main() -> int:
         for path in optional:
             if path.is_file():
                 add_file(zf, path, path.relative_to(ROOT).as_posix())
+        add_file(zf, seed, "backend/site_seed.py")
+        add_tree(zf, ROOT / "backend" / "app", "backend/app")
         add_tree(zf, DIST, "frontend/dist")
 
     print(f"[done] {OUT_ZIP}")
-    print("packed: start.sh, backend, frontend/dist")
-    print("not packed: frontend/src, node_modules, venv, company.db")
-    print("unzip into the site directory from deploy/sites/<site>/site.env")
+    print(f"packed site: {site}")
+    print("packed: start.sh, backend, backend/site_seed.py, frontend/dist")
+    print("not packed: other sites, frontend/src, node_modules, venv, company.db")
     return 0
 
 

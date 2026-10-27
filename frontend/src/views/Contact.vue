@@ -9,10 +9,9 @@
             </div>
           </template>
           <div class="contact-info">
-            <p><strong>地址：</strong> 某某市某某区创新大道123号科技园A座</p>
-            <p><strong>电话：</strong> 010-12345678</p>
-            <p><strong>邮箱：</strong> contact@example.com</p>
-            <p><strong>工作时间：</strong> 周一至周五 9:00 - 18:00</p>
+            <p v-for="item in site.contact" :key="item.label">
+              <strong>{{ item.label }}：</strong> {{ item.value }}
+            </p>
           </div>
         </el-card>
       </el-col>
@@ -51,6 +50,7 @@ import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { createMessage } from '../services/messageService'
 import { useAuthStore } from '../stores/auth'
+import { site } from '../site'
 
 const auth = useAuthStore()
 const formRef = ref(null)

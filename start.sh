@@ -27,7 +27,7 @@
 #   bash start.sh --status        查看是否在运行
 #   bash start.sh --rebuild       强制重装依赖并重新构建前端
 #
-# 页面和 /api 使用同一个端口。未设置 PORT 时默认 8001（瑞学调试机）。
+# 页面和 /api 使用同一个端口。未设置 PORT 时默认 8001。
 # 服务器上的实际端口以 runtime.env 里的 PORT 为准。
 # 宝塔防火墙 / 云服务器安全组要放行该端口。
 #
@@ -174,7 +174,7 @@ fi
 # seed.py 内部用相对路径 ../company.db，所以必须先 cd 到 backend/
 # -----------------------------------------------------------------------------
 if [[ ! -f "$ROOT/company.db" ]]; then
-  echo "[info] company.db missing, seeding demo data..."
+  echo "[info] company.db missing, seeding demo data for site ${SITE_ID:-（未设置）}..."
   (cd "$BACKEND_DIR" && "$VENV/bin/python" seed.py)
 fi
 
@@ -193,7 +193,13 @@ elif [[ -f "$PACKAGE_JSON" ]]; then
     echo "  Install Node.js, or pack frontend/dist on Windows and upload again."
     exit 1
   fi
-  echo "[info] building frontend..."
+  if [[ -z "${SITE_ID:-}" ]]; then
+    echo "[error] 未设置 SITE_ID，无法确定要构建哪一家公司的页面"
+    exit 1
+  fi
+  export VITE_SITE_ID="$SITE_ID"
+  export VITE_SITE_NAME="${SITE_NAME:-}"
+  echo "[info] building frontend for site $SITE_ID..."
   cd "$FRONTEND_DIR"
   if [[ ! -d node_modules ]]; then
     npm install
