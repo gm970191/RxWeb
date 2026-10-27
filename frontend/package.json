@@ -1,16 +1,30 @@
 {
   "name": "rxweb-frontend",
+  "private": true,
   "version": "1.0.0",
+  "type": "module",
   "scripts": {
-    "serve": "vue-cli-service serve",
-    "build": "vue-cli-service build"
+    "dev": "vite --port 8001 --strictPort --host",
+    "build": "vite build",
+    "preview": "vite preview",
+    "cy:run": "cypress run",
+    "test:e2e": "start-server-and-test dev http-get://localhost:8001 \"cypress run --spec\"",
+    "test:products": "start-server-and-test \"npm run dev\" http-get://localhost:8001 \"cypress run --spec cypress/e2e/product_list.cy.js\"",
+    "test:navigation": "start-server-and-test \"npm run dev\" http-get://localhost:8001 \"cypress run --spec cypress/e2e/navigation.cy.js\"",
+    "test:news-detail": "start-server-and-test \"npm run dev\" http-get://localhost:8001 \"cypress run --spec cypress/e2e/news_detail.cy.js\"",
+    "test:news-admin": "start-server-and-test \"npm run dev\" http-get://localhost:8001 \"cypress run --spec cypress/e2e/news_admin.cy.js\""
   },
   "dependencies": {
-    "element-plus": "^2.9.11",
-    "vue": "^3.2.0",
-    "vue-router": "^4.0.0"
+    "axios": "^1.7.2",
+    "element-plus": "^2.7.7",
+    "pinia": "^2.1.7",
+    "vue": "^3.4.31",
+    "vue-router": "^4.4.0"
   },
   "devDependencies": {
-    "@vue/cli-service": "^5.0.0"
+    "@vitejs/plugin-vue": "^5.0.5",
+    "cypress": "^13.17.0",
+    "start-server-and-test": "^2.0.4",
+    "vite": "^5.3.1"
   }
 }
