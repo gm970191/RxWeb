@@ -1,23 +1,82 @@
-<style>
-@import "./assets/main.css";
-</style>
 <template>
-  <div id="app">
-    <nav>
-      <router-link to="/">主页</router-link>
-      <router-link to="/products">产品介绍</router-link>
-      <router-link to="/news">新闻动态</router-link>
-      <router-link to="/resources">资源下载</router-link>
-      <router-link to="/contact">联系我们</router-link>
-    </nav>
-    <router-view></router-view>
-  </div>
+  <el-container class="app-container">
+    <TheHeader />
+    <el-main>
+      <router-view />
+    </el-main>
+    <TheFooter />
+  </el-container>
 </template>
-<script>
-export default {
-  name: 'App'
-}
+
+<script setup>
+import TheHeader from './components/TheHeader.vue';
+import TheFooter from './components/TheFooter.vue';
 </script>
-<style scoped>
-/* 可以添加额外的局部样式 */
-</style>
+
+<style>
+/* Global styles */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
+  background: #f4f7fb;
+}
+
+img,
+video,
+canvas,
+svg {
+  max-width: 100%;
+}
+
+.app-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.el-main {
+  flex: 1;
+  padding: 20px;
+  min-width: 0;
+}
+
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+  .el-main {
+    padding: 12px;
+  }
+
+  .el-pagination {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .el-dialog {
+    width: 92% !important;
+    margin: 8vh auto !important;
+  }
+
+  .el-message-box {
+    width: 90% !important;
+    max-width: 420px;
+  }
+}
+</style> 
