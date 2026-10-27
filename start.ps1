@@ -53,7 +53,14 @@ $VenvUvicorn = Join-Path $Venv "Scripts\uvicorn.exe"
 $FrontendDir = Join-Path $Root "frontend"
 $BackendDir = Join-Path $Root "backend"
 $DistIndex = Join-Path $FrontendDir "dist\index.html"
-$DbFile = Join-Path $Root "company.db"
+if ($Site -notmatch '^[A-Za-z0-9][A-Za-z0-9_-]*$') {
+    Write-Host "[error] 站点名只能使用字母、数字、下划线和连字符"
+    exit 1
+}
+$DataDir = Join-Path $Root (Join-Path "data" $Site)
+$DbFile = Join-Path $DataDir "company.db"
+$env:SITE_ID = $Site
+$env:RXWEB_DB = $DbFile
 $LogDir = Join-Path $Root "logs"
 $PidFile = Join-Path $Root "rxweb.pid"
 $LogFile = Join-Path $LogDir "rxweb.log"
@@ -153,10 +160,12 @@ if ($Rebuild -or -not (Test-Path $VenvUvicorn)) {
 # 4) 准备 SQLite 数据库 company.db
 # 没有这个文件时，用 seed.py 写入演示数据（产品、新闻、下载）
 # -----------------------------------------------------------------------------
+if (-not (Test-Path $DataDir)) {
+    New-Item -ItemType Directory -Path $DataDir | Out-Null
+}
 if (-not (Test-Path $DbFile)) {
-    Write-Host "[info] company.db missing, seeding demo data for site $Site..."
+    Write-Host "[info] seeding demo data for site $Site -> $DbFile"
     Push-Location $BackendDir
-    $env:SITE_ID = $Site
     & $VenvPython "seed.py"
     Pop-Location
 }

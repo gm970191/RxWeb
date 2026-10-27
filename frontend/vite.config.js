@@ -55,7 +55,8 @@ export default defineConfig(({ command }) => {
       strictPort: true,
       proxy: {
         '/api': {
-          target: 'http://127.0.0.1:18001',
+          // 18001 只给本机热更新用，不是网站端口。start-dev.ps1 会写入 RXWEB_DEV_API_PORT。
+          target: `http://127.0.0.1:${process.env.RXWEB_DEV_API_PORT || '18001'}`,
           changeOrigin: true,
         },
       },

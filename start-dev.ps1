@@ -1,9 +1,10 @@
 # =============================================================================
 # RxWeb Windows 本机开发启动（前后端分开两个端口）
 # =============================================================================
-# 调试机不用本脚本。瑞学调试机用 start.sh，页面和接口都在 8001。
+# 调试机不用本脚本。调试机每个网站只有一个端口，页面和接口在一起。
 #
 # 本脚本只给 Windows 本机改代码时用。浏览器打开 http://127.0.0.1:8001 。
+# 18001 是本机 FastAPI 的接口端口，不是网站端口。Vite 把 /api 转到这个端口。
 #
 # 【怎么运行】在项目根目录打开 PowerShell：
 #   powershell -ExecutionPolicy Bypass -File .\start-dev.ps1
@@ -31,7 +32,15 @@ $VenvPython = Join-Path $Venv "Scripts\python.exe"
 $VenvUvicorn = Join-Path $Venv "Scripts\uvicorn.exe"
 $FrontendDir = Join-Path $Root "frontend"
 $BackendDir = Join-Path $Root "backend"
-$DbFile = Join-Path $Root "company.db"
+if ($Site -notmatch '^[A-Za-z0-9][A-Za-z0-9_-]*$') {
+    Write-Host "[error] 站点名只能使用字母、数字、下划线和连字符"
+    exit 1
+}
+$DataDir = Join-Path $Root (Join-Path "data" $Site)
+$DbFile = Join-Path $DataDir "company.db"
+$env:SITE_ID = $Site
+$env:RXWEB_DB = $DbFile
+$env:RXWEB_DEV_API_PORT = "$BackendPort"
 $LogDir = Join-Path $Root "logs"
 $PidFile = Join-Path $Root "rxweb-dev-backend.pid"
 $LogFile = Join-Path $LogDir "rxweb-dev-backend.log"
@@ -106,10 +115,12 @@ if (-not (Test-Path $VenvUvicorn)) {
     & $VenvPython -m pip install -r (Join-Path $BackendDir "requirements.txt")
 }
 
+if (-not (Test-Path $DataDir)) {
+    New-Item -ItemType Directory -Path $DataDir | Out-Null
+}
 if (-not (Test-Path $DbFile)) {
-    Write-Host "[info] company.db missing, seeding demo data for site $Site..."
+    Write-Host "[info] seeding demo data for site $Site -> $DbFile"
     Push-Location $BackendDir
-    $env:SITE_ID = $Site
     & $VenvPython "seed.py"
     Pop-Location
 }

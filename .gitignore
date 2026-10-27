@@ -25,6 +25,9 @@ backend/venv/
 RxWeb-deploy.zip
 .deploy-stage/
 
+# 本机按站点分开的数据库，不提交
+data/
+
 # 忽略运行时文件
 logs/
 rxweb.pid
