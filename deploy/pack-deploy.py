@@ -33,6 +33,24 @@ def add_tree(zf: zipfile.ZipFile, src_dir: Path, arc_prefix: str) -> None:
         add_file(zf, path, f"{arc_prefix}/{rel}")
 
 
+def read_app_port(site_dir: Path, target: str) -> str:
+    key = "PROD_APP_PORT" if target == "prod" else "DEBUG_APP_PORT"
+    env_file = site_dir / "site.env"
+    if not env_file.is_file():
+        raise SystemExit(f"[error] 找不到 {env_file}")
+    match = re.search(rf"(?m)^{key}=(\d+)\s*$", env_file.read_text(encoding="utf-8"))
+    if not match:
+        raise SystemExit(f"[error] {env_file} 没有可用的 {key}")
+    return match.group(1)
+
+
+def render_start_sh(port: str) -> str:
+    text = (ROOT / "start.sh").read_text(encoding="utf-8")
+    if "@RXWEB_APP_PORT@" not in text:
+        raise SystemExit("[error] start.sh 缺少端口占位符 @RXWEB_APP_PORT@")
+    return text.replace("@RXWEB_APP_PORT@", port).replace("\r\n", "\n").replace("\r", "\n")
+
+
 def build_frontend(site: str) -> None:
     npm = shutil.which("npm")
     if not npm:
@@ -50,6 +68,7 @@ def build_frontend(site: str) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="打包一家公司的发布文件")
     parser.add_argument("--site", required=True, help="站点目录名，例如 aierde")
+    parser.add_argument("--target", choices=("debug", "prod"), default="debug")
     args = parser.parse_args()
     site = args.site.strip()
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", site):
@@ -63,10 +82,11 @@ def main() -> int:
     if not re.search(rf"SITE_ID\s*=\s*['\"]{re.escape(site)}['\"]", seed_text):
         raise SystemExit(f"[error] 种子文件的 SITE_ID 不是 {site}")
 
+    app_port = read_app_port(site_dir, args.target)
+    start_text = render_start_sh(app_port)
     build_frontend(site)
 
     required = [
-        ROOT / "start.sh",
         ROOT / "backend" / "requirements.txt",
         ROOT / "backend" / "seed.py",
         ROOT / "backend" / "app" / "main.py",
@@ -86,6 +106,7 @@ def main() -> int:
     ]
 
     with zipfile.ZipFile(OUT_ZIP, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("start.sh", start_text)
         for path in required:
             add_file(zf, path, path.relative_to(ROOT).as_posix())
         for path in optional:
@@ -96,7 +117,7 @@ def main() -> int:
         add_tree(zf, DIST, "frontend/dist")
 
     print(f"[done] {OUT_ZIP}")
-    print(f"packed site: {site}")
+    print(f"packed site: {site}  port: {app_port}  target: {args.target}")
     print("packed: start.sh, backend, backend/site_seed.py, frontend/dist")
     print("not packed: other sites, frontend/src, node_modules, venv, company.db")
     return 0

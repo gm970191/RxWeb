@@ -27,8 +27,9 @@
 #   bash start.sh --status        查看是否在运行
 #   bash start.sh --rebuild       强制重装依赖并重新构建前端
 #
-# 页面和 /api 使用同一个端口。未设置 PORT 时默认 8001。
-# 服务器上的实际端口以 runtime.env 里的 PORT 为准。
+# 页面和 /api 使用同一个端口。
+# 发布时把下面的默认端口换成该站 site.env 里的端口。
+# 门户启停以这个端口为准，不沿用其他站点带入的端口。
 # 宝塔防火墙 / 云服务器安全组要放行该端口。
 #
 # 【Windows 上传后必做】脚本可能带 Windows 换行符 \r，Linux 会报错。先执行：
@@ -55,7 +56,17 @@ if [[ -f "$ROOT/runtime.env" ]]; then
   . "$ROOT/runtime.env"
   set +a
 fi
-PORT="${PORT:-8001}"          # 没设置环境变量 PORT 时，默认 8001（官网 + /api）
+# 下面的默认端口由发布脚本按该站 site.env 写入。门户若带入了别的 PORT，仍改回本站。
+PORT="${PORT:-@RXWEB_APP_PORT@}"
+if [[ "@RXWEB_APP_PORT@" =~ ^[0-9]+$ ]]; then
+  if [[ "$PORT" != "@RXWEB_APP_PORT@" ]]; then
+    echo "[warn] 环境变量 PORT=${PORT} 与本站端口 @RXWEB_APP_PORT@ 不一致，启停改用本站端口"
+    PORT="@RXWEB_APP_PORT@"
+  fi
+elif [[ ! "$PORT" =~ ^[0-9]+$ ]]; then
+  echo "[error] 未设置端口。请用发布脚本写入本站端口，或在 runtime.env 中设置 PORT。"
+  exit 1
+fi
 HOST="${HOST:-0.0.0.0}"       # 0.0.0.0 = 监听所有网卡，外网才能访问
 VENV="$ROOT/.venv"
 FRONTEND_DIR="$ROOT/frontend"
@@ -77,8 +88,8 @@ for arg in "$@"; do
     --status) ACTION="status" ;;
     --help|-h)
       echo "Usage: $0 [--daemon] [--rebuild] [--stop] [--status]"
-      echo "  default port 8001, listen 0.0.0.0"
-      echo "  PORT=8001 HOST=0.0.0.0 $0 --daemon"
+      echo "  default port @RXWEB_APP_PORT@, listen 0.0.0.0"
+      echo "  PORT=@RXWEB_APP_PORT@ HOST=0.0.0.0 $0 --daemon"
       exit 0
       ;;
     *)
@@ -226,7 +237,7 @@ cd "$BACKEND_DIR"
 # -----------------------------------------------------------------------------
 # 6) 启动 uvicorn
 # app.main:app = backend/app/main.py 文件里的 FastAPI 实例 app
-# 同一个 8001 端口既提供 /api/* 接口，也提供官网页面
+# 同一个端口既提供 /api/* 接口，也提供官网页面
 # -----------------------------------------------------------------------------
 if [[ "$DAEMON" -eq 1 ]]; then
   # nohup = 忽略挂断信号，SSH 断开后进程还在

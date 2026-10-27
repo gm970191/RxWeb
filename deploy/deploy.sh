@@ -130,6 +130,7 @@ missing=""
 [[ -z "$DEPLOY_HOST" ]] && missing="${missing} ${TARGET} host"
 [[ -z "$DEPLOY_PATH" ]] && missing="${missing} ${TARGET} path"
 [[ -z "$APP_PORT" ]] && missing="${missing} ${TARGET} port"
+[[ -n "$APP_PORT" && ! "$APP_PORT" =~ ^[0-9]+$ ]] && missing="${missing} ${TARGET} port(必须是数字)"
 if [[ -n "$missing" ]]; then
   echo "[error] ${TARGET} 配置还是空的:${missing}"
   echo "        请先填写 deploy/sites/${SITE}/site.env。本次不会连接服务器。"
@@ -259,7 +260,12 @@ STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"; cleanup' EXIT
 
 mkdir -p "$STAGE/backend" "$STAGE/frontend/dist"
-cp "$ROOT/start.sh" "$STAGE/start.sh"
+if ! grep -q '@RXWEB_APP_PORT@' "$ROOT/start.sh"; then
+  echo "[error] start.sh 缺少端口占位符 @RXWEB_APP_PORT@"
+  exit 1
+fi
+# 门户启停读 start.sh 里的默认端口，按本站 site.env 写入，避免落到 8001。
+sed "s/@RXWEB_APP_PORT@/${APP_PORT}/g" "$ROOT/start.sh" > "$STAGE/start.sh"
 
 # 端口和对外地址按本次目标写入，避免调试机站点误听 8001。
 {

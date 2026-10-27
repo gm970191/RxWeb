@@ -17,10 +17,11 @@
 #   .\start.ps1 -Stop            停止后台进程
 #   .\start.ps1 -Status          查看是否在运行
 #   .\start.ps1 -Rebuild         强制重装 Python 依赖并重新构建前端
-#   .\start.ps1 -Port 8001       指定端口，默认 8001
+#   .\start.ps1 -Site aierde    使用该站 site.env 里的调试端口和数据库
+#   .\start.ps1 -Port 9000      临时改端口；不写则用 DEBUG_APP_PORT
 #
-# 启动成功后浏览器打开：http://127.0.0.1:8001
-# 本机热更新请用 start-dev.ps1，浏览器也是 8001。不要和本脚本同时跑。
+# 启动成功后浏览器打开的地址端口来自 deploy/sites/<站点>/site.env。
+# 本机热更新请用 start-dev.ps1（浏览器 8001，接口 18001）。不要和本脚本同时跑。
 # =============================================================================
 
 # param 必须写在脚本最前面（注释块之后也可以，但要在其他命令之前）
@@ -31,7 +32,7 @@ param(
     [switch]$Stop,       # 停止后台进程
     [switch]$Status,     # 只查看状态，不启动
     [switch]$Help,       # 显示帮助
-    [int]$Port = 8001,   # 网站端口，默认 8001（页面和 /api 同一个端口）
+    [int]$Port = 0,      # 不填则读取该站 site.env 的 DEBUG_APP_PORT
     [string]$Site = "ruixue"
 )
 
@@ -57,6 +58,28 @@ if ($Site -notmatch '^[A-Za-z0-9][A-Za-z0-9_-]*$') {
     Write-Host "[error] 站点名只能使用字母、数字、下划线和连字符"
     exit 1
 }
+if (-not $PSBoundParameters.ContainsKey('Port')) {
+    $siteFile = Join-Path $Root (Join-Path "deploy\sites\$Site" "site.env")
+    if (-not (Test-Path -LiteralPath $siteFile)) {
+        Write-Host "[error] 找不到站点配置 $siteFile"
+        exit 1
+    }
+    $sitePort = $null
+    foreach ($line in Get-Content -LiteralPath $siteFile -Encoding UTF8) {
+        if ($line -match '^\s*DEBUG_APP_PORT\s*=\s*(\d+)\s*$') {
+            $sitePort = [int]$Matches[1]
+        }
+    }
+    if (-not $sitePort) {
+        Write-Host "[error] $siteFile 没有 DEBUG_APP_PORT"
+        exit 1
+    }
+    $Port = $sitePort
+}
+if ($Port -le 0) {
+    Write-Host "[error] 端口必须是正整数"
+    exit 1
+}
 $DataDir = Join-Path $Root (Join-Path "data" $Site)
 $DbFile = Join-Path $DataDir "company.db"
 $env:SITE_ID = $Site
@@ -76,7 +99,8 @@ function Show-Help {
     Write-Host "  .\start.ps1 -Stop        stop background process"
     Write-Host "  .\start.ps1 -Status      show status"
     Write-Host "  .\start.ps1 -Rebuild     reinstall deps and rebuild frontend"
-    Write-Host "  .\start.ps1 -Port 8001   bind port (default 8001)"
+    Write-Host "  .\start.ps1 -Site aierde use that site port from site.env"
+    Write-Host "  .\start.ps1 -Port 9000   override the site port"
 }
 
 function Test-RxWebRunning {
@@ -173,7 +197,7 @@ if (-not (Test-Path $DbFile)) {
 # -----------------------------------------------------------------------------
 # 5) 构建前端
 # Vue 源码不能直接给浏览器用，要用 Vite 编译成 frontend\dist\
-# FastAPI 会把 dist 和 API 挂在同一个 8001 端口
+# FastAPI 会把 dist 和 API 挂在该站端口上
 # -----------------------------------------------------------------------------
 $needBuild = $false
 if ($Rebuild) { $needBuild = $true }

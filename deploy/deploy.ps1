@@ -126,6 +126,7 @@ $missing = @()
 if (-not $HostName) { $missing += "${prefix}_HOST" }
 if (-not $RemotePath) { $missing += "${prefix}_PATH" }
 if (-not $AppPort) { $missing += "${prefix}_APP_PORT" }
+if ($AppPort -and $AppPort -notmatch '^\d+$') { $missing += "${prefix}_APP_PORT(必须是数字)" }
 if ($missing.Count -gt 0) {
     Raise-DeployError ("{0} 的 {1} 还是空的，已停止。请先填写 deploy/sites/{2}/site.env" -f $Target, ($missing -join ", "), $Site)
 }
@@ -280,7 +281,14 @@ try {
     $stage = Join-Path $env:TEMP ("rxweb-stage-" + [guid]::NewGuid().ToString("n"))
     New-Item -ItemType Directory -Path (Join-Path $stage "backend") | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $stage "frontend\dist") | Out-Null
-    Copy-Item (Join-Path $Root "start.sh") (Join-Path $stage "start.sh")
+    $startSrc = Join-Path $Root "start.sh"
+    $startText = [System.IO.File]::ReadAllText($startSrc)
+    if ($startText -notmatch '@RXWEB_APP_PORT@') {
+        Raise-DeployError "start.sh 缺少端口占位符 @RXWEB_APP_PORT@"
+    }
+    $startText = $startText.Replace('@RXWEB_APP_PORT@', $AppPort)
+    $startUtf8 = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText((Join-Path $stage "start.sh"), $startText, $startUtf8)
 
     $backendSrc = Join-Path $Root "backend"
     Get-ChildItem $backendSrc -Recurse -File | Where-Object {
