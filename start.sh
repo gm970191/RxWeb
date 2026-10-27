@@ -27,9 +27,9 @@
 #   bash start.sh --status        查看是否在运行
 #   bash start.sh --rebuild       强制重装依赖并重新构建前端
 #
-# 启动成功后浏览器打开：http://服务器IP:8001
-# 宝塔防火墙 / 云服务器安全组都要放行 8001 端口。
-# 生产/测试环境只开这一个端口：页面和 /api 都在 8001，不需要再开 18001。
+# 页面和 /api 使用同一个端口。未设置 PORT 时默认 8001（瑞学调试机）。
+# 服务器上的实际端口以 runtime.env 里的 PORT 为准。
+# 宝塔防火墙 / 云服务器安全组要放行该端口。
 #
 # 【Windows 上传后必做】脚本可能带 Windows 换行符 \r，Linux 会报错。先执行：
 #   sed -i 's/\r$//' /www/wwwroot/RxWeb/start.sh
@@ -202,7 +202,7 @@ elif [[ -f "$PACKAGE_JSON" ]]; then
   cd "$ROOT"
 else
   echo "[error] missing frontend/dist and frontend/package.json"
-  echo "  Re-pack on Windows with pack-deploy.ps1, then unzip again."
+  echo "  Re-pack on Windows with deploy/pack-deploy.ps1, then unzip again."
   echo "  Check: ls -la $FRONTEND_DIR $FRONTEND_DIR/dist"
   exit 1
 fi

@@ -1,12 +1,9 @@
 # =============================================================================
 # RxWeb Windows 本机开发启动（前后端分开两个端口）
 # =============================================================================
-# Ubuntu 测试主机不要用本脚本。那边用 start.sh，只开 8001。
+# 调试机不用本脚本。瑞学调试机用 start.sh，页面和接口都在 8001。
 #
-# 本脚本：
-#   前台 Vite    http://127.0.0.1:8001
-#   后台 FastAPI http://127.0.0.1:18001
-# Vite 会把 /api 代理到 18001，所以浏览器只打开 8001 即可。
+# 本脚本只给 Windows 本机改代码时用。浏览器打开 http://127.0.0.1:8001 。
 #
 # 【怎么运行】在项目根目录打开 PowerShell：
 #   powershell -ExecutionPolicy Bypass -File .\start-dev.ps1
@@ -39,9 +36,8 @@ $PidFile = Join-Path $Root "rxweb-dev-backend.pid"
 $LogFile = Join-Path $LogDir "rxweb-dev-backend.log"
 
 function Show-Help {
-    Write-Host "RxWeb Windows local dev (two ports)"
-    Write-Host "  frontend Vite     http://127.0.0.1:$FrontendPort"
-    Write-Host "  backend FastAPI   http://127.0.0.1:$BackendPort"
+    Write-Host "RxWeb Windows local dev"
+    Write-Host "  open http://127.0.0.1:$FrontendPort"
     Write-Host "  .\start-dev.ps1         start backend + vite"
     Write-Host "  .\start-dev.ps1 -Stop   stop backend"
     Write-Host "  .\start-dev.ps1 -Status show backend status"
@@ -77,7 +73,7 @@ if ($Stop) {
 if ($Status) {
     if (Test-DevBackendRunning) {
         $procId = Get-Content $PidFile | Select-Object -First 1
-        Write-Host "[info] backend running pid=$procId  http://127.0.0.1:${BackendPort}"
+        Write-Host "[info] backend running pid=$procId"
         exit 0
     }
     Write-Host "[info] backend not running"
@@ -122,9 +118,9 @@ if (-not (Test-Path $LogDir)) {
 
 if (Test-DevBackendRunning) {
     $procId = Get-Content $PidFile | Select-Object -First 1
-    Write-Host "[info] backend already running pid=$procId  http://127.0.0.1:${BackendPort}"
+    Write-Host "[info] backend already running pid=$procId"
 } else {
-    Write-Host "[info] starting backend http://127.0.0.1:${BackendPort}"
+    Write-Host "[info] starting backend"
     $proc = Start-Process -FilePath $VenvUvicorn `
         -ArgumentList "app.main:app","--reload","--host","127.0.0.1","--port","$BackendPort" `
         -WorkingDirectory $BackendDir `

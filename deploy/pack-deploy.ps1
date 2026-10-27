@@ -1,9 +1,9 @@
 # Build production zip (backend + frontend/dist only).
-#   powershell -ExecutionPolicy Bypass -File .\pack-deploy.ps1
-#   python .\pack-deploy.py
+#   pwsh -File .\deploy\pack-deploy.ps1
 
 $ErrorActionPreference = "Stop"
-$Root = Split-Path -Parent $MyInvocation.MyCommand.Path
+$DeployDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$Root = Split-Path -Parent $DeployDir
 Set-Location $Root
 
 $py = $null
@@ -15,5 +15,5 @@ if (-not $py) {
     throw "python not found. Install Python and add it to PATH."
 }
 
-& $py (Join-Path $Root "pack-deploy.py")
+& $py (Join-Path $DeployDir "pack-deploy.py")
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

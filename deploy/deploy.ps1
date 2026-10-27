@@ -4,24 +4,31 @@
 # 请用 PowerShell 7（pwsh），不要用系统自带的 Windows PowerShell 5.1。
 # 7.x 默认按 UTF-8 解析脚本，不需要 UTF-8 BOM。
 #
-# 在项目根目录执行：
-#   pwsh -File .\deploy.ps1
+# 在项目根目录执行（必须指定站点；默认发到调试机）：
+#   pwsh -File .\deploy\deploy.ps1 -Site aierde
+#   pwsh -File .\deploy\deploy.ps1 -Site aierde -Target prod
 #
 # 常用参数：
+#   -Site           站点目录名，对应 deploy/sites/<站点>/site.env
+#   -Target         debug（默认）或 prod。生产地址或端口为空时直接拒绝
 #   -NoBuild        已有 frontend/dist 时跳过构建
 #   -DryRun         只打包暂存，不上传
 #   -SetupKey       把本机 SSH 公钥装到服务器，以后免密
 #   -SkipRestart    只传文件，不重启进程
 #   -Reseed         上传后按 seed.py 重写远程 company.db 演示数据
 #
-# 配置写在 deploy.env（不要提交）。默认发布到：
-#   root@47.97.245.103:/www/wwwroot/RxWeb   端口 8001
+# 站点地址、目录、端口：deploy/sites/<站点>/site.env
+# SSH 口令：deploy/machines.env（不要提交）
 # =============================================================================
 
 #Requires -Version 7.0
 
 [CmdletBinding()]
 param(
+    [Parameter(Mandatory = $true)]
+    [string]$Site,
+    [ValidateSet("debug", "prod")]
+    [string]$Target = "debug",
     [switch]$NoBuild,
     [switch]$DryRun,
     [switch]$SetupKey,
@@ -30,7 +37,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$Root = Split-Path -Parent $MyInvocation.MyCommand.Path
+$DeployDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$Root = Split-Path -Parent $DeployDir
 Set-Location $Root
 
 function Write-Info {
@@ -47,6 +55,13 @@ function Get-CleanText {
     param([string]$Text)
     if ([string]::IsNullOrEmpty($Text)) { return "" }
     return $Text.Replace("`r", "").Replace("`n", "").Trim()
+}
+
+function Get-EnvValue {
+    param([string]$Name)
+    $item = Get-Item -Path "Env:$Name" -ErrorAction SilentlyContinue
+    if (-not $item) { return "" }
+    return Get-CleanText ([string]$item.Value)
 }
 
 function Quote-BashSingle {
@@ -68,18 +83,46 @@ function Read-DeployEnv {
     }
 }
 
-Read-DeployEnv (Join-Path $Root "deploy.env")
+if ($Site -notmatch '^[A-Za-z0-9][A-Za-z0-9_-]*$') {
+    Raise-DeployError "站点名只能使用字母、数字、下划线和连字符"
+}
 
-$HostName = Get-CleanText $(if ($env:DEPLOY_HOST) { $env:DEPLOY_HOST } else { "47.97.245.103" })
-$UserName = Get-CleanText $(if ($env:DEPLOY_USER) { $env:DEPLOY_USER } else { "root" })
-$RemotePath = Get-CleanText $(if ($env:DEPLOY_PATH) { $env:DEPLOY_PATH } else { "/www/wwwroot/RxWeb" })
-$SshPort = Get-CleanText $(if ($env:DEPLOY_SSH_PORT) { $env:DEPLOY_SSH_PORT } else { "22" })
-$AppPort = Get-CleanText $(if ($env:APP_PORT) { $env:APP_PORT } else { "8001" })
-$Password = Get-CleanText $(if ($env:DEPLOY_PASS) { $env:DEPLOY_PASS } else { "" })
+$SiteDir = Join-Path $DeployDir (Join-Path "sites" $Site)
+$SiteFile = Join-Path $SiteDir "site.env"
+if (-not (Test-Path $SiteFile)) {
+    Raise-DeployError ("找不到站点配置 {0}" -f $SiteFile)
+}
+
+Read-DeployEnv (Join-Path $DeployDir "machines.env")
+Read-DeployEnv $SiteFile
+$siteSecret = Join-Path $SiteDir "deploy.env"
+if (Test-Path $siteSecret) { Read-DeployEnv $siteSecret }
+
+$prefix = $(if ($Target -eq "prod") { "PROD" } else { "DEBUG" })
+$HostName = Get-EnvValue "${prefix}_HOST"
+$UserName = Get-EnvValue "${prefix}_USER"
+if (-not $UserName) { $UserName = "root" }
+$RemotePath = Get-EnvValue "${prefix}_PATH"
+$SshPort = Get-EnvValue "${prefix}_SSH_PORT"
+if (-not $SshPort) { $SshPort = "22" }
+$AppPort = Get-EnvValue "${prefix}_APP_PORT"
+$Password = Get-EnvValue "${prefix}_PASS"
+if (-not $Password) { $Password = Get-EnvValue "DEPLOY_PASS" }
+$SiteTitle = Get-CleanText $(if ($env:SITE_NAME) { $env:SITE_NAME } else { $Site })
+
+$missing = @()
+if (-not $HostName) { $missing += "${prefix}_HOST" }
+if (-not $RemotePath) { $missing += "${prefix}_PATH" }
+if (-not $AppPort) { $missing += "${prefix}_APP_PORT" }
+if ($missing.Count -gt 0) {
+    Raise-DeployError ("{0} 的 {1} 还是空的，已停止。请先填写 deploy/sites/{2}/site.env" -f $Target, ($missing -join ", "), $Site)
+}
+
 $Remote = "${UserName}@${HostName}"
 $SiteUrl = "http://${HostName}:${AppPort}/"
 
-Write-Info ("target  {0}:{1}" -f $Remote, $SshPort)
+Write-Info ("site    {0}  {1}" -f $Site, $SiteTitle)
+Write-Info ("target  {0}  {1}:{2}" -f $Target, $Remote, $SshPort)
 Write-Info ("path    {0}" -f $RemotePath)
 Write-Info ("url     {0}" -f $SiteUrl)
 
@@ -102,7 +145,7 @@ function Clear-AskPass {
 
 function Enable-PasswordAuth {
     if (-not $Password) {
-        Raise-DeployError "密钥登录失败，且 deploy.env 里没有 DEPLOY_PASS"
+        Raise-DeployError "密钥登录失败，且 deploy/machines.env 里没有对应环境的口令"
     }
     $ask = Join-Path $env:TEMP ("rxweb-askpass-{0}.cmd" -f [guid]::NewGuid().ToString("n"))
     $esc = $Password.Replace("%", "%%")
@@ -191,7 +234,7 @@ try {
         Write-Info ("安装公钥到 {0}:~/.ssh/authorized_keys" -f $Remote)
         $install = ('mkdir -p ~/.ssh && chmod 700 ~/.ssh && touch ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && grep -qxF {0} ~/.ssh/authorized_keys || echo {0} >> ~/.ssh/authorized_keys' -f (Quote-BashSingle $pubText))
         Invoke-Remote $install
-        Write-Info "完成。之后可把 deploy.env 里的 DEPLOY_PASS 删掉。"
+        Write-Info "完成。之后可把 deploy/machines.env 里的口令删掉。"
         return
     }
 
@@ -226,10 +269,6 @@ try {
     New-Item -ItemType Directory -Path (Join-Path $stage "backend") | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $stage "frontend\dist") | Out-Null
     Copy-Item (Join-Path $Root "start.sh") (Join-Path $stage "start.sh")
-    $service = Join-Path $Root "rxweb.service"
-    if (Test-Path $service) {
-        Copy-Item $service (Join-Path $stage "rxweb.service")
-    }
 
     $backendSrc = Join-Path $Root "backend"
     Get-ChildItem $backendSrc -Recurse -File | Where-Object {
@@ -247,11 +286,25 @@ try {
         Copy-Item $_.FullName $dest
     }
     Copy-Item -Recurse -Force (Join-Path $Root "frontend\dist\*") (Join-Path $stage "frontend\dist\")
-    $runtimeEnv = Join-Path $Root "runtime.env"
-    if (Test-Path $runtimeEnv) {
-        Copy-Item $runtimeEnv (Join-Path $stage "runtime.env")
-        Write-Info "将一并上传 runtime.env（SMTP 等运行配置）"
+    $runtimeLines = New-Object System.Collections.Generic.List[string]
+    $runtimeSrc = Join-Path $SiteDir "runtime.env"
+    if (Test-Path $runtimeSrc) {
+        Get-Content -Path $runtimeSrc -Encoding utf8 | ForEach-Object {
+            $line = Get-CleanText $_
+            if (-not $line) { return }
+            if ($line.StartsWith("PORT=") -or $line.StartsWith("PUBLIC_BASE_URL=")) { return }
+            $runtimeLines.Add($line)
+        }
+        Write-Info "将一并上传该站点 runtime.env（SMTP 等），并按本次目标写入端口"
+    } else {
+        Write-Info "该站点没有 runtime.env，只写入端口和 PUBLIC_BASE_URL"
     }
+    $runtimeBody = New-Object System.Collections.Generic.List[string]
+    $runtimeBody.Add("PORT=$AppPort")
+    $runtimeBody.Add("PUBLIC_BASE_URL=http://${HostName}:${AppPort}")
+    foreach ($line in $runtimeLines) { $runtimeBody.Add($line) }
+    $utf8 = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllLines((Join-Path $stage "runtime.env"), $runtimeBody, $utf8)
 
     Write-Info "将上传: start.sh, backend/, frontend/dist/"
     Write-Info "不会上传: node_modules, .git, venv, company.db, 源码 src/"
@@ -271,7 +324,7 @@ try {
     & tar -czf $tarball -C $stage .
     if ($LASTEXITCODE -ne 0) { Raise-DeployError "tar 打包失败" }
 
-    $remoteTar = "/tmp/rxweb-deploy.tgz"
+    $remoteTar = "/tmp/rxweb-deploy-$Site.tgz"
     Write-Info "上传压缩包 ..."
     $scpArgs = @(
         "-P", $SshPort,

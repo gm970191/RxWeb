@@ -1,8 +1,6 @@
 # 保证 Linux 脚本始终是 LF 换行，避免从 Windows 上传后 bash 报 No such file or directory
 *.sh text eol=lf
-docker-entrypoint.sh text eol=lf
-Dockerfile text eol=lf
 start.ps1 text eol=crlf
 start-dev.ps1 text eol=crlf
-deploy.ps1 text eol=crlf
-pack-deploy.ps1 text eol=crlf
+deploy/deploy.ps1 text eol=crlf
+deploy/pack-deploy.ps1 text eol=crlf

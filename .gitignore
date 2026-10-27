@@ -9,6 +9,7 @@ node_modules/
 .env.*
 deploy.env
 runtime.env
+deploy/machines.env
 
 # 忽略打包输出目录
 /dist

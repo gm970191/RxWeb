@@ -8,7 +8,7 @@ root = Path(r"d:\Projects\RxWeb")
 files = [
     root / "start.ps1",
     root / "start-dev.ps1",
-    root / "pack-deploy.ps1",
+    root / "deploy" / "pack-deploy.ps1",
 ]
 for p in files:
     if not p.is_file():

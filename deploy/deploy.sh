@@ -10,41 +10,68 @@
 #   5. 密码写在 deploy.env，不写进脚本
 #
 # 用法（在项目根目录）：
-#   bash deploy.sh              构建前端 + 发布 + 重启 + 检查
-#   bash deploy.sh --no-build   已有 dist 时跳过构建
-#   bash deploy.sh --dry-run    只看会同步哪些文件，不真正上传
-#   bash deploy.sh --setup-key  把本机 SSH 公钥装到服务器，以后免密
-#   bash deploy.sh --skip-restart  只传文件，不重启进程
+#   bash deploy/deploy.sh --site aierde
+#   bash deploy/deploy.sh --site aierde --target prod
+#   bash deploy/deploy.sh --site aierde --no-build
+#   bash deploy/deploy.sh --site aierde --dry-run
+#   bash deploy/deploy.sh --site aierde --setup-key
+#   bash deploy/deploy.sh --site aierde --skip-restart
 #
-# 配置：复制 deploy.env.example 为 deploy.env 后填写主机和密码。
+# 站点地址、目录、端口：deploy/sites/<站点>/site.env
+# SSH 口令：deploy/machines.env（不要提交）
+# 生产地址或端口为空时直接拒绝，不会连接服务器。
 # =============================================================================
 
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")" && pwd)"
+DEPLOY_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$DEPLOY_DIR/.." && pwd)"
 cd "$ROOT"
 
 NO_BUILD=0
 DRY_RUN=0
 SETUP_KEY=0
 SKIP_RESTART=0
+SITE=""
+TARGET="debug"
 
-for arg in "$@"; do
-  case "$arg" in
-    --no-build) NO_BUILD=1 ;;
-    --dry-run) DRY_RUN=1 ;;
-    --setup-key) SETUP_KEY=1 ;;
-    --skip-restart) SKIP_RESTART=1 ;;
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --site)
+      SITE="${2:-}"
+      shift 2
+      ;;
+    --target)
+      TARGET="${2:-}"
+      shift 2
+      ;;
+    --no-build) NO_BUILD=1; shift ;;
+    --dry-run) DRY_RUN=1; shift ;;
+    --setup-key) SETUP_KEY=1; shift ;;
+    --skip-restart) SKIP_RESTART=1; shift ;;
     --help|-h)
-      sed -n '2,22p' "$0"
+      sed -n '2,24p' "$0"
       exit 0
       ;;
     *)
-      echo "[error] unknown arg: $arg  (use --help)"
+      echo "[error] unknown arg: $1  (use --help)"
       exit 1
       ;;
   esac
 done
+
+if [[ -z "$SITE" ]]; then
+  echo "[error] 请指定站点，例如: bash deploy/deploy.sh --site aierde"
+  exit 1
+fi
+if [[ ! "$SITE" =~ ^[A-Za-z0-9][A-Za-z0-9_-]*$ ]]; then
+  echo "[error] 站点名只能使用字母、数字、下划线和连字符"
+  exit 1
+fi
+if [[ "$TARGET" != "debug" && "$TARGET" != "prod" ]]; then
+  echo "[error] --target 只能是 debug 或 prod"
+  exit 1
+fi
 
 # -----------------------------------------------------------------------------
 # 读取 deploy.env（KEY=VALUE，支持引号，忽略注释和空行）
@@ -70,19 +97,47 @@ load_env() {
   done < "$file"
 }
 
-load_env "$ROOT/deploy.env"
+SITE_DIR="$DEPLOY_DIR/sites/$SITE"
+if [[ ! -f "$SITE_DIR/site.env" ]]; then
+  echo "[error] 找不到站点配置 $SITE_DIR/site.env"
+  exit 1
+fi
 
-DEPLOY_HOST="${DEPLOY_HOST:-47.97.245.103}"
-DEPLOY_USER="${DEPLOY_USER:-root}"
-DEPLOY_PATH="${DEPLOY_PATH:-/www/wwwroot/RxWeb}"
-DEPLOY_SSH_PORT="${DEPLOY_SSH_PORT:-22}"
-APP_PORT="${APP_PORT:-8001}"
-DEPLOY_PASS="${DEPLOY_PASS:-}"
+load_env "$DEPLOY_DIR/machines.env"
+load_env "$SITE_DIR/site.env"
+load_env "$SITE_DIR/deploy.env"
+
+if [[ "$TARGET" == "prod" ]]; then
+  DEPLOY_HOST="${PROD_HOST:-}"
+  DEPLOY_USER="${PROD_USER:-root}"
+  DEPLOY_PATH="${PROD_PATH:-}"
+  DEPLOY_SSH_PORT="${PROD_SSH_PORT:-22}"
+  APP_PORT="${PROD_APP_PORT:-}"
+  DEPLOY_PASS="${PROD_PASS:-${DEPLOY_PASS:-}}"
+else
+  DEPLOY_HOST="${DEBUG_HOST:-}"
+  DEPLOY_USER="${DEBUG_USER:-root}"
+  DEPLOY_PATH="${DEBUG_PATH:-}"
+  DEPLOY_SSH_PORT="${DEBUG_SSH_PORT:-22}"
+  APP_PORT="${DEBUG_APP_PORT:-}"
+  DEPLOY_PASS="${DEBUG_PASS:-${DEPLOY_PASS:-}}"
+fi
+
+missing=""
+[[ -z "$DEPLOY_HOST" ]] && missing="${missing} ${TARGET} host"
+[[ -z "$DEPLOY_PATH" ]] && missing="${missing} ${TARGET} path"
+[[ -z "$APP_PORT" ]] && missing="${missing} ${TARGET} port"
+if [[ -n "$missing" ]]; then
+  echo "[error] ${TARGET} 配置还是空的:${missing}"
+  echo "        请先填写 deploy/sites/${SITE}/site.env。本次不会连接服务器。"
+  exit 1
+fi
 
 REMOTE="${DEPLOY_USER}@${DEPLOY_HOST}"
 SITE_URL="http://${DEPLOY_HOST}:${APP_PORT}/"
 
-echo "[info] target  ${REMOTE}:${DEPLOY_SSH_PORT}"
+echo "[info] site    ${SITE}  ${SITE_NAME:-}"
+echo "[info] target  ${TARGET}  ${REMOTE}:${DEPLOY_SSH_PORT}"
 echo "[info] path    ${DEPLOY_PATH}"
 echo "[info] url     ${SITE_URL}"
 
@@ -125,8 +180,8 @@ if [[ "$DRY_RUN" -eq 0 ]]; then
     echo "[info] SSH 密钥登录成功"
   else
     if [[ -z "$DEPLOY_PASS" ]]; then
-      echo "[error] 密钥登录失败，且 deploy.env 里没有 DEPLOY_PASS"
-      echo "        请填写密码，或先执行: bash deploy.sh --setup-key"
+      echo "[error] 密钥登录失败，且 deploy/machines.env 里没有对应环境的口令"
+      echo "        请填写口令，或先执行: bash deploy/deploy.sh --site ${SITE} --setup-key"
       exit 1
     fi
     if command -v sshpass >/dev/null 2>&1; then
@@ -168,7 +223,7 @@ if [[ "$SETUP_KEY" -eq 1 ]]; then
   echo "[info] 安装公钥到 ${REMOTE}:~/.ssh/authorized_keys"
   pub="$(cat "${local_key}.pub")"
   ssh_run "mkdir -p ~/.ssh && chmod 700 ~/.ssh && touch ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && grep -qxF '$pub' ~/.ssh/authorized_keys || echo '$pub' >> ~/.ssh/authorized_keys"
-  echo "[info] 完成。之后可把 deploy.env 里的 DEPLOY_PASS 删掉。"
+  echo "[info] 完成。之后可把 deploy/machines.env 里的口令删掉。"
   exit 0
 fi
 
@@ -193,16 +248,22 @@ else
 fi
 
 # -----------------------------------------------------------------------------
-# 准备要上传的文件列表（与 pack-deploy 一致，外加 rxweb.service）
+# 准备要上传的文件：start.sh、backend、frontend/dist、按本次目标生成的 runtime.env
 # -----------------------------------------------------------------------------
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"; cleanup' EXIT
 
 mkdir -p "$STAGE/backend" "$STAGE/frontend/dist"
 cp "$ROOT/start.sh" "$STAGE/start.sh"
-if [[ -f "$ROOT/rxweb.service" ]]; then
-  cp "$ROOT/rxweb.service" "$STAGE/rxweb.service"
-fi
+
+# 端口和对外地址按本次目标写入，避免调试机站点误听 8001。
+{
+  echo "PORT=${APP_PORT}"
+  echo "PUBLIC_BASE_URL=http://${DEPLOY_HOST}:${APP_PORT}"
+  if [[ -f "$SITE_DIR/runtime.env" ]]; then
+    grep -Ev '^[[:space:]]*(PORT|PUBLIC_BASE_URL)=' "$SITE_DIR/runtime.env" || true
+  fi
+} > "$STAGE/runtime.env"
 
 if command -v rsync >/dev/null 2>&1; then
   rsync -a --delete \
@@ -246,10 +307,8 @@ if command -v rsync >/dev/null 2>&1; then
   echo "[info] rsync 同步 ..."
   rsync -az --delete -e "$RSYNC_RSH" \
     "$STAGE/start.sh" "$REMOTE:$DEPLOY_PATH/start.sh"
-  if [[ -f "$STAGE/rxweb.service" ]]; then
-    rsync -az -e "$RSYNC_RSH" \
-      "$STAGE/rxweb.service" "$REMOTE:$DEPLOY_PATH/rxweb.service"
-  fi
+  rsync -az -e "$RSYNC_RSH" \
+    "$STAGE/runtime.env" "$REMOTE:$DEPLOY_PATH/runtime.env"
   rsync -az --delete \
     --exclude='venv/' \
     --exclude='.venv/' \
@@ -270,7 +329,7 @@ fi
 # 注意：绝不会去动 company.db / .venv / logs
 # -----------------------------------------------------------------------------
 echo "[info] 修复 start.sh 换行符 ..."
-ssh_run "sed -i 's/\r$//' '$DEPLOY_PATH/start.sh' && chmod +x '$DEPLOY_PATH/start.sh'"
+ssh_run "sed -i 's/\r$//' '$DEPLOY_PATH/start.sh' '$DEPLOY_PATH/runtime.env' && chmod +x '$DEPLOY_PATH/start.sh' && chmod 600 '$DEPLOY_PATH/runtime.env'"
 
 if [[ "$SKIP_RESTART" -eq 1 ]]; then
   echo "[info] 已跳过重启。文件已上传到 $DEPLOY_PATH"

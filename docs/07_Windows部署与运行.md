@@ -70,43 +70,18 @@ powershell -ExecutionPolicy Bypass -File .\start.ps1 -Port 8001
 
 ## 4. 开发模式（改代码立刻刷新）
 
-这是「两个进程、两个端口」，和上面的一键 8001 **不是同一套**。不要和 `start.ps1` 同时跑（都会占用 8001）。
-
-推荐一条命令（后台 18001 + 前台 8001）：
+不要和 `start.ps1` 同时跑，两者都会占用 8001。
 
 ```powershell
 cd D:\Projects\RxWeb
 powershell -ExecutionPolicy Bypass -File .\start-dev.ps1
 ```
 
-浏览器打开：**http://127.0.0.1:8001**。Vite 会把 `/api` 转到 `18001`。
+浏览器打开：**http://127.0.0.1:8001**。
 
-停止：当前窗口 `Ctrl+C` 停前台；再执行 `.\start-dev.ps1 -Stop` 停后台。
+停止：当前窗口 `Ctrl+C`；再执行 `.\start-dev.ps1 -Stop` 停本机后端进程。
 
-也可以手动开两个终端：
-
-**终端 1 — 后端（18001）：**
-
-```powershell
-cd D:\Projects\RxWeb
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r backend\requirements.txt
-cd backend
-..\.venv\Scripts\uvicorn.exe app.main:app --reload --port 18001
-```
-
-**终端 2 — 前端（8001）：**
-
-```powershell
-cd D:\Projects\RxWeb\frontend
-npm install
-npm run dev
-```
-
-开发时代理配置在 `frontend/vite.config.js`，目标必须是 `http://127.0.0.1:18001`。
-
-改完后要上传到 Ubuntu 测试机：先 `pack-deploy.ps1` 打包，再按 [08_Ubuntu部署与运行.md](./08_Ubuntu部署与运行.md) 覆盖并重启。测试机只开 **8001**，不必开 18001。
+改完后发到瑞学调试机：`pwsh -File .\deploy\deploy.ps1 -Site ruixue`。调试机端口是 **8001**。生产地址和端口写在 `deploy/sites/ruixue/site.env`，现在留空。
 
 新手若只想「先看到和服务器一样的网站」，用第 3 节的 `start.ps1` 即可。
 
@@ -122,7 +97,7 @@ npm run dev
 
 **中文乱码、字符串缺少终止符**
 
-旧版 `pack-deploy.ps1` 曾因编码导致 PowerShell 5.1 解析失败。请使用仓库里现在这份英文提示的 `pack-deploy.ps1`。`start.ps1` 已尽量避免在关键字符串里使用会破坏解析的字符。
+旧版 `pack-deploy.ps1` 曾因编码导致 PowerShell 5.1 解析失败。请使用仓库里现在这份 `deploy/pack-deploy.ps1`。`start.ps1` 已尽量避免在关键字符串里使用会破坏解析的字符。
 
 **页面只有 API 的 JSON，没有官网**
 

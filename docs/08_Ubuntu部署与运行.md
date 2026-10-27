@@ -1,8 +1,14 @@
 # Ubuntu / 宝塔 部署与运行
 
-适合：阿里云等 Ubuntu 服务器，网站目录常用 `/www/wwwroot/`。测试主机默认端口 **8001**（页面和 `/api` 同一个端口，不必再开 18001）。
+适合：阿里云等 Ubuntu 服务器，网站目录常用 `/www/wwwroot/`。瑞学调试机端口是 **8001**，页面和 `/api` 在同一个端口。生产地址和端口先留空。
 
-Windows 请用 [07_Windows部署与运行.md](./07_Windows部署与运行.md)。更省事可用 [09_Docker部署与运行.md](./09_Docker部署与运行.md)。
+Windows 请用 [07_Windows部署与运行.md](./07_Windows部署与运行.md)。从本机直接发布到某一家公司的目录：
+
+```powershell
+pwsh -File .\deploy\deploy.ps1 -Site ruixue
+```
+
+每家公司的调试机、生产机地址和端口在 `deploy/sites/<站点>/site.env`。生产项为空时，加 `-Target prod` 会直接停下，不会连接服务器。
 
 ## 1. 服务器先装基础软件
 
@@ -80,7 +86,7 @@ bash /www/wwwroot/RxWeb/start.sh
 2. 宝塔：安全 → 防火墙 → 放行 8001
 3. 若开了 `ufw`：`ufw allow 8001/tcp`
 
-以前用过 8080 时，先 `bash /www/wwwroot/RxWeb/start.sh --stop`，换新脚本后再 `--daemon`。测试机**不需要**放行 18001。
+以前用过 8080 时，先 `bash /www/wwwroot/RxWeb/start.sh --stop`，换新脚本后再 `--daemon`。瑞学调试机放行 **8001** 即可。
 
 ## 6. 可选：开机自启（systemd）
 

@@ -1,18 +1,17 @@
 # 瑞学软件有限公司 (RxWeb) 官方网站
 
-公司官网：企业形象、产品、新闻、下载与联系我们。前端 Vue 3，后端 FastAPI，数据库 SQLite。测试 / 生产环境用 **同一个 8001 端口** 同时提供页面和 `/api` 接口。本机热更新开发时，前台仍是 8001，后台单独占用 18001。
+公司官网：企业形象、产品、新闻、下载与联系我们。前端 Vue 3，后端 FastAPI，数据库 SQLite。调试机端口是 **8001**，页面和 `/api` 都在这个端口。生产环境的地址和端口先留空，以后再填。
 
 ## 新手从这里开始
 
 请按顺序阅读 `docs` 目录（从零讲解，含每一步命令）：
 
-1. [从零开始](./docs/00_从零开始.md) — 项目是什么、端口/虚拟环境/Docker 等词是什么意思
+1. [从零开始](./docs/00_从零开始.md) — 项目是什么、端口、虚拟环境这些词是什么意思
 2. [项目文件组成与功能](./docs/05_项目文件组成与功能.md) — 每个文件干什么、哪些不要上传
 3. [打包方法](./docs/06_打包方法.md) — 如何打 `RxWeb-deploy.zip`
 4. 按环境动手：
    - [Windows 部署与运行](./docs/07_Windows部署与运行.md) → `start.ps1` / `start-dev.ps1`
    - [Ubuntu / 宝塔 部署与运行](./docs/08_Ubuntu部署与运行.md) → `start.sh`
-   - [Docker 部署与运行](./docs/09_Docker部署与运行.md) → `Dockerfile` + `docker-compose.yml`
 
 设计文档（架构、表结构、接口、前端规划）：[01](./docs/01_System_Architecture.md) · [02](./docs/02_Database_Design.md) · [03](./docs/03_API_Endpoints.md) · [04](./docs/04_Frontend_Design.md)
 
@@ -27,7 +26,7 @@ powershell -ExecutionPolicy Bypass -File .\start.ps1
 
 浏览器打开 http://127.0.0.1:8001
 
-本机改代码立刻刷新（前台 8001 + 后台 18001）：
+本机改代码立刻刷新（浏览器仍打开 8001）：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\start-dev.ps1
@@ -40,13 +39,16 @@ sed -i 's/\r$//' /www/wwwroot/RxWeb/start.sh
 bash /www/wwwroot/RxWeb/start.sh --daemon
 ```
 
-浏览器打开 `http://服务器IP:8001`。测试机不必开放 18001。
+瑞学调试机打开 `http://47.97.245.103:8001`。生产地址和端口写在 `deploy/sites/ruixue/site.env`，现在是空的。
 
-Docker（项目根目录）：
+发布到调试机（生产地址留空时，`-Target prod` 会直接拒绝）：
 
-```bash
-docker compose up --build -d
+```powershell
+pwsh -File .\deploy\deploy.ps1 -Site ruixue
+pwsh -File .\deploy\deploy.ps1 -Site aierde
 ```
+
+站点目录和端口在 `deploy/sites/<站点>/site.env`。同一台调试机上每个网站使用自己的目录、端口和 `company.db`。
 
 ## 技术栈
 

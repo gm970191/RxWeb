@@ -8,8 +8,9 @@ import sys
 import zipfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
-OUT_ZIP = ROOT / "RxWeb-deploy.zip"
+DEPLOY_DIR = Path(__file__).resolve().parent
+ROOT = DEPLOY_DIR.parent
+OUT_ZIP = DEPLOY_DIR / "RxWeb-deploy.zip"
 FRONTEND = ROOT / "frontend"
 DIST = FRONTEND / "dist"
 
@@ -57,7 +58,6 @@ def main() -> int:
         OUT_ZIP.unlink()
 
     optional = [
-        ROOT / "rxweb.service",
         ROOT / "backend" / "app" / "__init__.py",
     ]
 
@@ -72,19 +72,7 @@ def main() -> int:
     print(f"[done] {OUT_ZIP}")
     print("packed: start.sh, backend, frontend/dist")
     print("not packed: frontend/src, node_modules, venv, company.db")
-    print("")
-    print("First install:")
-    print("  unzip -o /www/wwwroot/RxWeb-deploy.zip -d /www/wwwroot/RxWeb")
-    print("  sed -i 's/\\r$//' /www/wwwroot/RxWeb/start.sh")
-    print("  bash /www/wwwroot/RxWeb/start.sh --daemon")
-    print("  open http://SERVER_IP:8001  (page + /api, no extra 18001)")
-    print("")
-    print("Later update (keep server company.db):")
-    print("  bash /www/wwwroot/RxWeb/start.sh --stop")
-    print("  unzip -o /www/wwwroot/RxWeb-deploy.zip -d /www/wwwroot/RxWeb")
-    print("  sed -i 's/\\r$//' /www/wwwroot/RxWeb/start.sh")
-    print("  bash /www/wwwroot/RxWeb/start.sh --daemon")
-    print("  open http://SERVER_IP:8001  (page + /api, no extra 18001)")
+    print("unzip into the site directory from deploy/sites/<site>/site.env")
     return 0
 
 
