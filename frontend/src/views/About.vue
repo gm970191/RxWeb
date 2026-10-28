@@ -1,7 +1,9 @@
 <template>
   <div v-if="page" class="page">
-    <h1>{{ page.title }}</h1>
-    <p v-for="(paragraph, index) in page.paragraphs" :key="index">{{ paragraph }}</p>
+    <PageBanner :title="page.title" :image="page.banner" />
+    <div class="sheet">
+      <p v-for="(paragraph, index) in page.paragraphs" :key="index">{{ paragraph }}</p>
+    </div>
     <div v-if="page.advantages?.length" class="advantages">
       <h2>服务优势</h2>
       <div class="advantage-grid">
@@ -11,15 +13,13 @@
         </article>
       </div>
     </div>
-    <div v-if="page.images?.length" class="photos">
-      <img v-for="image in page.images" :key="image" :src="image" alt="" />
-    </div>
   </div>
 </template>
 
 <script setup>
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import PageBanner from '../components/PageBanner.vue'
 import { site } from '../site'
 
 const router = useRouter()
@@ -32,14 +32,15 @@ onMounted(() => {
 
 <style scoped>
 .page {
-  max-width: 900px;
+  max-width: 960px;
   margin: 0 auto;
-  padding: 32px 0 48px;
+  padding: 8px 0 48px;
 }
-h1 {
-  margin: 0 0 20px;
-  font-size: 32px;
-  color: #0b3d73;
+.sheet {
+  padding: 28px 32px 12px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(11, 61, 115, 0.06);
 }
 p {
   margin: 0 0 16px;
@@ -48,9 +49,12 @@ p {
   font-size: 16px;
 }
 h2 {
-  margin: 28px 0 16px;
+  margin: 8px 0 16px;
   font-size: 22px;
   color: #0b3d73;
+}
+.advantages {
+  margin-top: 12px;
 }
 .advantage-grid {
   display: grid;
@@ -74,24 +78,13 @@ article p {
   font-size: 14px;
   color: #606266;
 }
-.photos {
-  display: grid;
-  gap: 16px;
-  margin-top: 28px;
-}
-.photos img {
-  width: 100%;
-  max-height: 280px;
-  object-fit: cover;
-  border-radius: 8px;
-}
 
 @media (max-width: 768px) {
   .page {
-    padding: 16px 0 32px;
+    padding: 0 0 32px;
   }
-  h1 {
-    font-size: 26px;
+  .sheet {
+    padding: 18px 16px 4px;
   }
   .advantage-grid {
     grid-template-columns: 1fr;

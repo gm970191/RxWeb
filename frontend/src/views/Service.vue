@@ -1,6 +1,6 @@
 <template>
   <div v-if="page" class="page">
-    <h1>{{ page.title }}</h1>
+    <PageBanner :title="page.title" :image="page.banner" />
     <div class="body">{{ page.body }}</div>
   </div>
 </template>
@@ -8,6 +8,7 @@
 <script setup>
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import PageBanner from '../components/PageBanner.vue'
 import { site } from '../site'
 
 const router = useRouter()
@@ -20,16 +21,15 @@ onMounted(() => {
 
 <style scoped>
 .page {
-  max-width: 900px;
+  max-width: 960px;
   margin: 0 auto;
-  padding: 32px 0 48px;
-}
-h1 {
-  margin: 0 0 20px;
-  font-size: 32px;
-  color: #0b3d73;
+  padding: 8px 0 48px;
 }
 .body {
+  padding: 28px 32px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(11, 61, 115, 0.06);
   white-space: pre-line;
   line-height: 1.85;
   color: #303133;
@@ -38,10 +38,10 @@ h1 {
 
 @media (max-width: 768px) {
   .page {
-    padding: 16px 0 32px;
+    padding: 0 0 32px;
   }
-  h1 {
-    font-size: 26px;
+  .body {
+    padding: 18px 16px;
   }
 }
 </style>

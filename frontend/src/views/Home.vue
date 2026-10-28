@@ -1,20 +1,26 @@
 <template>
   <div class="home-container">
-    <!-- Hero Section -->
-    <el-carousel v-if="banners.length" class="home-banner" height="320px" indicator-position="outside">
-      <el-carousel-item v-for="image in banners" :key="image">
-        <img :src="image" class="banner-img" alt="" />
-      </el-carousel-item>
-    </el-carousel>
-
-    <div class="hero-section">
+    <section class="hero" :class="{ photo: banners.length }">
+      <el-carousel
+        v-if="banners.length"
+        class="hero-carousel"
+        height="380px"
+        indicator-position="inside"
+        arrow="hover"
+      >
+        <el-carousel-item v-for="image in banners" :key="image">
+          <div class="hero-photo" :style="{ backgroundImage: `url(${image})` }">
+            <div class="hero-veil"></div>
+          </div>
+        </el-carousel-item>
+      </el-carousel>
       <div class="hero-content">
         <h1>{{ site.heroTitle }}</h1>
         <p>{{ site.heroLead }}</p>
         <p v-if="site.hotline" class="hotline">{{ site.hotline }}</p>
         <el-button type="primary" size="large" @click="goToProducts">浏览产品</el-button>
       </div>
-    </div>
+    </section>
 
     <!-- Featured Products Section -->
     <div class="featured-section">
@@ -104,37 +110,69 @@ const goToNews = (id) => {
   margin: auto;
   padding: 24px 0 40px 0;
 }
-.hero-section {
-  background: linear-gradient(135deg, #0b3d73 0%, #1d6fb8 52%, #4aa3e0 100%);
-  padding: 80px 40px;
-  text-align: center;
+.hero {
+  position: relative;
   margin-bottom: 40px;
+  overflow: hidden;
   border-radius: 12px;
   color: #fff;
+  background: linear-gradient(135deg, #0b3d73 0%, #1d6fb8 52%, #4aa3e0 100%);
   box-shadow: 0 12px 32px rgba(11, 61, 115, 0.22);
+}
+.hero.photo {
+  height: 380px;
+  background: #0b3d73;
+}
+.hero-carousel {
+  position: absolute;
+  inset: 0;
+}
+.hero-photo {
+  position: relative;
+  width: 100%;
+  height: 380px;
+  background-position: center;
+  background-size: cover;
+}
+.hero-veil {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(11, 61, 115, 0.42) 0%, rgba(11, 61, 115, 0.74) 100%);
+}
+.hero-content {
+  position: relative;
+  z-index: 2;
+  padding: 72px 48px;
+  text-align: center;
+}
+.hero.photo .hero-content {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 72px 56px;
+  pointer-events: none;
+}
+.hero.photo .hero-content :deep(.el-button) {
+  pointer-events: auto;
 }
 .hero-content h1 {
   font-size: 36px;
-  margin-bottom: 16px;
+  margin: 0 0 16px;
   color: #fff;
 }
 .hero-content p {
   font-size: 18px;
-  color: rgba(255, 255, 255, 0.88);
-  margin-bottom: 24px;
+  color: rgba(255, 255, 255, 0.92);
+  margin: 0 0 16px;
 }
 .hotline {
-  margin-top: -8px;
   font-weight: 600;
 }
-.home-banner {
-  margin-bottom: 24px;
-}
-.banner-img {
-  width: 100%;
-  height: 320px;
-  object-fit: cover;
-  display: block;
+.hero-content :deep(.el-button) {
+  margin-top: 8px;
 }
 
 .featured-section {
@@ -200,10 +238,19 @@ const goToNews = (id) => {
     padding: 0 0 24px;
   }
 
-  .hero-section {
-    padding: 40px 16px;
+  .hero {
     margin-bottom: 24px;
     border-radius: 10px;
+  }
+
+  .hero.photo,
+  .hero-photo {
+    height: 320px;
+  }
+
+  .hero-content,
+  .hero.photo .hero-content {
+    padding: 32px 16px 40px;
   }
 
   .hero-content h1 {
