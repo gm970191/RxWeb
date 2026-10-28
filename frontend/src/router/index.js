@@ -5,6 +5,8 @@ import ProductDetail from '../views/ProductDetail.vue';
 import News from '../views/News.vue';
 import NewsDetail from '../views/NewsDetail.vue';
 import Downloads from '../views/Downloads.vue';
+import About from '../views/About.vue';
+import Service from '../views/Service.vue';
 import Contact from '../views/Contact.vue';
 import Login from '../views/Login.vue';
 import ForgotPassword from '../views/ForgotPassword.vue';
@@ -24,6 +26,8 @@ const routes = [
   { path: '/news', name: 'News', component: News },
   { path: '/news/:id', name: 'NewsDetail', component: NewsDetail },
   { path: '/downloads', name: 'Downloads', component: Downloads },
+  { path: '/about', name: 'About', component: About },
+  { path: '/service', name: 'Service', component: Service },
   { path: '/contact', name: 'Contact', component: Contact },
   { path: '/login', name: 'Login', component: Login },
   { path: '/forgot-password', name: 'ForgotPassword', component: ForgotPassword },

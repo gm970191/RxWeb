@@ -4,6 +4,17 @@
       <template #header>
         <div class="card-header">
           <span>新闻动态</span>
+          <div v-if="sourceOptions.length" class="source-bar">
+            <button
+              v-for="item in sourceOptions"
+              :key="item"
+              type="button"
+              :class="{ active: selectedSource === item.value }"
+              @click="selectSource(item.value)"
+            >
+              {{ item.label }}
+            </button>
+          </div>
         </div>
       </template>
       <div v-if="loading" style="text-align:center;padding:32px;">加载中...</div>
@@ -37,26 +48,46 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { fetchNews } from '../services/newsService'
+import { site } from '../site'
 
 const newsList = ref([])
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(5)
 const loading = ref(false)
+const selectedSource = ref(site.defaultNewsSource || '')
 const router = useRouter()
+const sourceOptions = computed(() => {
+  const sources = site.newsSources || []
+  if (!sources.length) return []
+  return [
+    ...sources.map((label) => ({ label, value: label })),
+    { label: '全部', value: '' },
+  ]
+})
 
 async function loadNews() {
   loading.value = true
   try {
-    const data = await fetchNews({ page: currentPage.value, pageSize: pageSize.value })
+    const data = await fetchNews({
+      page: currentPage.value,
+      pageSize: pageSize.value,
+      source: selectedSource.value,
+    })
     newsList.value = data.list
     total.value = data.total
   } finally {
     loading.value = false
   }
+}
+
+function selectSource(value) {
+  selectedSource.value = value
+  currentPage.value = 1
+  loadNews()
 }
 
 onMounted(loadNews)
@@ -80,8 +111,32 @@ function goToDetail(id) {
   padding: 24px 0;
 }
 .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
   font-size: 20px;
   font-weight: bold;
+}
+.source-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.source-bar button {
+  border: 1px solid #dcdfe6;
+  background: #fff;
+  color: #606266;
+  border-radius: 16px;
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.source-bar button.active {
+  color: #0b3d73;
+  border-color: #0b3d73;
+  background: #eef5fb;
 }
 .news-item {
   padding: 16px 0;
@@ -130,6 +185,8 @@ function goToDetail(id) {
   }
 
   .card-header {
+    flex-direction: column;
+    align-items: flex-start;
     font-size: 18px;
   }
 

@@ -284,24 +284,23 @@ def get_news(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
     keyword: Optional[str] = Query(None),
+    source: Optional[str] = Query(None),
 ):
     conn = connect()
-    sql = "SELECT id, title, date, source, summary FROM news"
+    filters = []
     params = []
-    has_keyword = keyword is not None and keyword.strip() != ""
-    if has_keyword:
-        sql += " WHERE title LIKE ? OR summary LIKE ? OR source LIKE ?"
-        kw = f"%{keyword}%"
+    if keyword is not None and keyword.strip() != "":
+        filters.append("(title LIKE ? OR summary LIKE ? OR source LIKE ?)")
+        kw = f"%{keyword.strip()}%"
         params.extend([kw, kw, kw])
+    if source is not None and source.strip() != "":
+        filters.append("source = ?")
+        params.append(source.strip())
+    where = (" WHERE " + " AND ".join(filters)) if filters else ""
+    sql = "SELECT id, title, date, source, summary FROM news" + where
     sql += " ORDER BY date DESC, id DESC LIMIT ? OFFSET ?"
-    params.extend([page_size, (page - 1) * page_size])
-    rows = conn.execute(sql, params).fetchall()
-    count_sql = "SELECT COUNT(*) FROM news"
-    count_params = []
-    if has_keyword:
-        count_sql += " WHERE title LIKE ? OR summary LIKE ? OR source LIKE ?"
-        count_params.extend([kw, kw, kw])
-    total = conn.execute(count_sql, count_params).fetchone()[0]
+    rows = conn.execute(sql, [*params, page_size, (page - 1) * page_size]).fetchall()
+    total = conn.execute("SELECT COUNT(*) FROM news" + where, params).fetchone()[0]
     conn.close()
     return standard_response({
         "list": [row_to_news(row) for row in rows],

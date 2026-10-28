@@ -3,7 +3,12 @@
     <div>
       <a href="#">友情链接1</a> | <a href="#">友情链接2</a> | <router-link to="/login">登录</router-link>
     </div>
-    <div>&copy; {{ year }} {{ fullName }}. All Rights Reserved. ({{ beian }})</div>
+    <div>
+      &copy; {{ year }} {{ fullName }}. All Rights Reserved.
+      <template v-if="beian">
+        （<a v-if="beianUrl" :href="beianUrl" target="_blank" rel="noopener noreferrer">{{ beian }}</a><span v-else>{{ beian }}</span>）
+      </template>
+    </div>
   </el-footer>
 </template>
 
@@ -21,6 +26,9 @@ export default {
     },
     beian() {
       return site.beian
+    },
+    beianUrl() {
+      return site.beianUrl || ''
     },
   },
 };

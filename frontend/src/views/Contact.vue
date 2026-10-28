@@ -12,6 +12,10 @@
             <p v-for="item in site.contact" :key="item.label">
               <strong>{{ item.label }}：</strong> {{ item.value }}
             </p>
+            <div v-if="site.wechatQr" class="wechat">
+              <img :src="site.wechatQr" alt="微信二维码" />
+              <p>扫一扫，关注我们</p>
+            </div>
           </div>
         </el-card>
       </el-col>
@@ -118,6 +122,19 @@ const handleSubmit = () => {
 .contact-info p {
   margin: 0 0 16px;
   line-height: 1.6;
+}
+.wechat {
+  margin-top: 8px;
+}
+.wechat img {
+  width: 140px;
+  height: 140px;
+  object-fit: contain;
+  background: #fff;
+}
+.wechat p {
+  margin-top: 8px;
+  color: #606266;
 }
 
 @media (max-width: 768px) {

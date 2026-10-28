@@ -3,6 +3,38 @@ import vue from '@vitejs/plugin-vue';
 import fs from 'fs';
 import path from 'path';
 
+function siteMediaPlugin(siteId) {
+  const mediaDir = path.resolve(__dirname, '../deploy/sites', siteId, 'media');
+  const types = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+  };
+  return {
+    name: 'site-media',
+    configureServer(server) {
+      if (!fs.existsSync(mediaDir)) return;
+      server.middlewares.use('/media', (req, res, next) => {
+        const raw = decodeURIComponent((req.url || '/').split('?')[0]).replace(/^\/+/, '');
+        const file = path.resolve(mediaDir, raw);
+        const root = mediaDir.endsWith(path.sep) ? mediaDir : mediaDir + path.sep;
+        if (!file.startsWith(root) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
+          next();
+          return;
+        }
+        res.setHeader('Content-Type', types[path.extname(file).toLowerCase()] || 'application/octet-stream');
+        fs.createReadStream(file).pipe(res);
+      });
+    },
+    closeBundle() {
+      if (!fs.existsSync(mediaDir)) return;
+      fs.cpSync(mediaDir, path.resolve(__dirname, 'dist/media'), { recursive: true });
+    },
+  };
+}
+
 function resolveSite(command) {
   const fromEnv = (process.env.VITE_SITE_ID || '').trim();
   const siteId = fromEnv || (command === 'serve' ? 'ruixue' : '');
@@ -21,7 +53,7 @@ function resolveSite(command) {
   if (!marked || marked[1] !== siteId) {
     throw new Error(`页面配置不属于站点 ${siteId}`);
   }
-  const name = text.match(/fullName:\s*'([^']+)'/);
+  const name = text.match(/["']?fullName["']?\s*:\s*['"]([^'"]+)['"]/);
   return {
     siteId,
     profile,
@@ -36,6 +68,7 @@ export default defineConfig(({ command }) => {
   return {
     plugins: [
       vue(),
+      siteMediaPlugin(site.siteId),
       {
         name: 'site-title',
         transformIndexHtml(html) {

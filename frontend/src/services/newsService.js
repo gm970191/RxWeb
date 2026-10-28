@@ -8,8 +8,10 @@ export function getMockNews() {
   return Promise.resolve(mockNews)
 }
 
-export async function fetchNews({ page = 1, pageSize = 10, keyword = '' } = {}) {
-  const params = new URLSearchParams({ page, page_size: pageSize, keyword })
+export async function fetchNews({ page = 1, pageSize = 10, keyword = '', source = '' } = {}) {
+  const params = new URLSearchParams({ page, page_size: pageSize })
+  if (keyword) params.set('keyword', keyword)
+  if (source) params.set('source', source)
   return apiRequest(`/api/news?${params.toString()}`)
 }
 

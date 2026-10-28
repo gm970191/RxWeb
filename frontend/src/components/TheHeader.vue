@@ -1,17 +1,24 @@
 <template>
   <el-header class="header">
     <router-link to="/" class="logo" @click="mobileOpen = false">
-      <span class="logo-mark"></span>
+      <img v-if="site.logo" :src="site.logo" class="logo-img" alt="" />
+      <span v-else class="logo-mark"></span>
       {{ site.shortName }}
     </router-link>
-    <el-menu mode="horizontal" :router="true" :default-active="activeMenu" class="nav-menu desktop-nav">
-      <el-menu-item v-for="item in navItems" :key="item.path" :index="item.path">
+    <nav class="desktop-nav" aria-label="主导航">
+      <router-link
+        v-for="item in navItems"
+        :key="item.path"
+        :to="item.path"
+        class="nav-link"
+        :class="{ active: isActive(item.path) }"
+      >
         {{ item.label }}
-      </el-menu-item>
-      <el-menu-item v-if="auth.isAdmin" index="/admin/news">后台</el-menu-item>
-      <el-menu-item v-else-if="auth.isAuthenticated" index="/account">我的留言</el-menu-item>
-      <el-menu-item v-else index="/login">登录</el-menu-item>
-    </el-menu>
+      </router-link>
+      <router-link v-if="auth.isAdmin" to="/admin/news" class="nav-link" :class="{ active: isActive('/admin') }">后台</router-link>
+      <router-link v-else-if="auth.isAuthenticated" to="/account" class="nav-link" :class="{ active: isActive('/account') }">我的留言</router-link>
+      <router-link v-else to="/login" class="nav-link" :class="{ active: isActive('/login') }">登录</router-link>
+    </nav>
     <button
       class="menu-toggle"
       type="button"
@@ -76,18 +83,17 @@ import { site } from '../site'
 const route = useRoute()
 const auth = useAuthStore()
 const mobileOpen = ref(false)
-const activeMenu = computed(() => {
-  if (route.path.startsWith('/admin')) return '/admin/news'
-  return route.path
-})
 
-const navItems = [
+const defaultNav = [
   { path: '/', label: '主页' },
   { path: '/products', label: '产品中心' },
   { path: '/news', label: '新闻动态' },
   { path: '/downloads', label: '资源下载' },
   { path: '/contact', label: '联系我们' },
 ]
+const navItems = computed(() => (
+  Array.isArray(site.navItems) && site.navItems.length ? site.navItems : defaultNav
+))
 
 function isActive(path) {
   if (path === '/') return route.path === '/'
@@ -104,8 +110,9 @@ watch(() => route.fullPath, () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 40px;
-  height: 64px;
+  gap: 16px;
+  padding: 0 24px;
+  min-height: 64px;
   position: sticky;
   top: 0;
   z-index: 20;
@@ -136,27 +143,33 @@ watch(() => route.fullPath, () => {
   box-shadow: 0 0 0 4px rgba(240, 180, 41, 0.22);
 }
 
-.nav-menu {
-  flex-grow: 1;
+.logo-img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+
+.desktop-nav {
+  display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
-  border-bottom: none;
-  background: transparent;
-  --el-menu-bg-color: transparent;
-  --el-menu-text-color: rgba(255, 255, 255, 0.9);
-  --el-menu-hover-bg-color: rgba(255, 255, 255, 0.14);
-  --el-menu-active-color: #ffe08a;
-  --el-menu-hover-text-color: #fff;
-  --el-menu-border-color: transparent;
+  gap: 4px;
 }
 
-.el-menu-item {
-  font-size: 16px;
+.nav-link {
+  padding: 8px 10px;
+  color: rgba(255, 255, 255, 0.92);
+  text-decoration: none;
+  font-size: 15px;
   font-weight: 500;
+  border-radius: 6px;
+  white-space: nowrap;
 }
 
-.nav-menu :deep(.el-menu-item.is-active) {
-  background: rgba(255, 255, 255, 0.12) !important;
-  border-bottom-color: #f0b429 !important;
+.nav-link.active,
+.nav-link:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffe08a;
 }
 
 .menu-toggle {
@@ -210,7 +223,7 @@ watch(() => route.fullPath, () => {
   }
 
   .desktop-nav {
-    display: none !important;
+    display: none;
   }
 
   .menu-toggle {

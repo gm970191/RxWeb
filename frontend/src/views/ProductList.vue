@@ -15,7 +15,7 @@
             <h3>{{ item.name }}</h3>
             <p class="desc">{{ item.description }}</p>
             <router-link :to="{ name: 'ProductDetail', params: { id: item.id } }" class="detail-link">详情</router-link>
-            <div class="price">￥{{ item.price }}</div>
+            <div class="price">{{ formatPrice(item.price) }}</div>
           </div>
         </el-card>
       </el-col>
@@ -37,6 +37,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { fetchProducts, getCategories, getMockProducts } from '../services/productService'
+import { formatPrice } from '../utils/price'
 
 const products = ref([])
 const categories = ref([])
@@ -94,7 +95,14 @@ function onCategoryChange() {
   color: #66b1ff;
 }
 .price { color: #e4393c; font-weight: bold; margin-top: 8px; }
-.desc { color: #888; font-size: 13px; }
+.desc {
+  color: #888;
+  font-size: 13px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .pagination-bar { margin-top: 24px; text-align: center; }
 
 @media (max-width: 768px) {

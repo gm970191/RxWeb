@@ -19,7 +19,7 @@
         </div>
         <div class="info-section">
           <h1 class="product-title">{{ product.name }}</h1>
-          <div class="product-price">￥{{ product.price }}</div>
+          <div class="product-price">{{ formatPrice(product.price) }}</div>
           <div class="product-desc">{{ product.description }}</div>
         </div>
       </div>
@@ -32,6 +32,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { fetchProductDetail, getMockProducts } from '../services/productService'
+import { formatPrice } from '../utils/price'
 
 const route = useRoute()
 const product = ref(null)

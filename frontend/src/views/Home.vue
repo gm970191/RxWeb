@@ -1,10 +1,17 @@
 <template>
   <div class="home-container">
     <!-- Hero Section -->
+    <el-carousel v-if="banners.length" class="home-banner" height="320px" indicator-position="outside">
+      <el-carousel-item v-for="image in banners" :key="image">
+        <img :src="image" class="banner-img" alt="" />
+      </el-carousel-item>
+    </el-carousel>
+
     <div class="hero-section">
       <div class="hero-content">
         <h1>{{ site.heroTitle }}</h1>
         <p>{{ site.heroLead }}</p>
+        <p v-if="site.hotline" class="hotline">{{ site.hotline }}</p>
         <el-button type="primary" size="large" @click="goToProducts">浏览产品</el-button>
       </div>
     </div>
@@ -19,7 +26,7 @@
             <div class="product-info">
               <h3>{{ product.name }}</h3>
               <p class="desc">{{ product.description }}</p>
-              <div class="price">￥{{ product.price }}</div>
+              <div class="price">{{ formatPrice(product.price) }}</div>
             </div>
           </el-card>
         </el-col>
@@ -50,24 +57,35 @@ import { useRouter } from 'vue-router'
 import { fetchProducts, getMockProducts } from '../services/productService'
 import { fetchNews, getMockNews } from '../services/newsService'
 import { site } from '../site'
+import { formatPrice } from '../utils/price'
 
 const router = useRouter()
 const featuredProducts = ref([])
 const latestNews = ref([])
+const banners = site.banners || []
+
+function pickFeatured(list) {
+  const ids = site.featuredProductIds || []
+  if (!ids.length) return (list || []).slice(0, 3)
+  const picked = ids.map((id) => (list || []).find((item) => item.id === id)).filter(Boolean)
+  return picked.length ? picked : (list || []).slice(0, 3)
+}
 
 onMounted(async () => {
   try {
-    const allProducts = await fetchProducts()
-    featuredProducts.value = (allProducts || []).slice(0, 3)
+    featuredProducts.value = pickFeatured(await fetchProducts())
   } catch {
-    featuredProducts.value = (await getMockProducts()).slice(0, 3)
+    featuredProducts.value = pickFeatured(await getMockProducts())
   }
 
   try {
-    const data = await fetchNews({ page: 1, pageSize: 3 })
+    const data = await fetchNews({ page: 1, pageSize: 3, source: site.defaultNewsSource || '' })
     latestNews.value = data.list || []
   } catch {
-    latestNews.value = (await getMockNews()).slice(0, 3)
+    const mock = await getMockNews()
+    latestNews.value = site.defaultNewsSource
+      ? mock.filter((item) => item.source === site.defaultNewsSource).slice(0, 3)
+      : mock.slice(0, 3)
   }
 })
 
@@ -104,6 +122,19 @@ const goToNews = (id) => {
   font-size: 18px;
   color: rgba(255, 255, 255, 0.88);
   margin-bottom: 24px;
+}
+.hotline {
+  margin-top: -8px;
+  font-weight: 600;
+}
+.home-banner {
+  margin-bottom: 24px;
+}
+.banner-img {
+  width: 100%;
+  height: 320px;
+  object-fit: cover;
+  display: block;
 }
 
 .featured-section {
