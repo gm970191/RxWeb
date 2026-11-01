@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -17,6 +17,7 @@ from app.auth import (
     get_current_user,
     hash_password,
     hash_token,
+    optional_admin,
     require_admin,
     require_user,
     user_payload,
@@ -24,6 +25,14 @@ from app.auth import (
 )
 from app.db import connect, init_schema
 from app.mail import public_base_url, send_email
+from app.media_store import (
+    clean_image_url,
+    delete_uploaded_product_image,
+    list_product_image_names,
+    resolve_media_file,
+    save_product_image,
+    uploaded_product_path,
+)
 from app.oplog import write_log
 
 
@@ -74,12 +83,18 @@ class ResetPasswordIn(BaseModel):
     password: str
 
 
+class ChangePasswordIn(BaseModel):
+    old_password: str
+    new_password: str
+
+
 class NewsIn(BaseModel):
     title: str
     date: str
     source: str
     summary: str
     content: str
+    status: str = "published"
 
 
 class ProductIn(BaseModel):
@@ -88,6 +103,7 @@ class ProductIn(BaseModel):
     category: str
     image: str = ""
     description: str = ""
+    sort_order: Optional[int] = None
 
 
 class MessageIn(BaseModel):
@@ -106,6 +122,7 @@ def standard_response(data=None, code=0, message="ok"):
 
 
 def row_to_product(row):
+    sort_order = row["sort_order"] if "sort_order" in row.keys() else row["id"]
     return {
         "id": str(row["id"]),
         "name": str(row["name"] or ""),
@@ -113,7 +130,15 @@ def row_to_product(row):
         "category": str(row["category"] or ""),
         "image": str(row["image"] or ""),
         "description": str(row["description"] or ""),
+        "sort_order": int(row["id"] if sort_order is None else sort_order),
     }
+
+
+def news_status(row) -> str:
+    if "status" not in row.keys():
+        return "published"
+    value = row["status"] or ""
+    return value if value in ("draft", "published") else "published"
 
 
 def row_to_news(row, include_content=False):
@@ -123,10 +148,50 @@ def row_to_news(row, include_content=False):
         "date": row["date"],
         "source": row["source"],
         "summary": row["summary"],
+        "status": news_status(row),
     }
     if include_content:
         item["content"] = row["content"]
     return item
+
+
+def published_clause(column="status") -> str:
+    return f"COALESCE(NULLIF({column}, ''), 'published') = 'published'"
+
+
+def normalize_news_status(value: str) -> str:
+    return value if value in ("draft", "published") else ""
+
+
+def prepare_product(product: ProductIn, conn, product_id: Optional[int] = None):
+    name = product.name.strip()
+    price = product.price.strip()
+    category = product.category.strip()
+    description = (product.description or "").strip()
+    if not name or not price or not category or not description:
+        return None, "请填写名称、价格、分类和描述"
+    try:
+        image = clean_image_url(product.image)
+    except ValueError as exc:
+        return None, str(exc)
+    if product.sort_order is None:
+        if product_id is not None:
+            current = conn.execute("SELECT sort_order FROM products WHERE id = ?", (product_id,)).fetchone()
+            sort_order = int(current["sort_order"]) if current and current["sort_order"] is not None else product_id
+        else:
+            sort_order = int(conn.execute("SELECT COALESCE(MAX(sort_order), 0) + 1 FROM products").fetchone()[0])
+    else:
+        sort_order = int(product.sort_order)
+        if sort_order < 0 or sort_order > 999999:
+            return None, "排序请填 0 到 999999"
+    return {
+        "name": name,
+        "price": price,
+        "category": category,
+        "image": image,
+        "description": description,
+        "sort_order": sort_order,
+    }, ""
 
 
 def row_to_message(row):
@@ -279,16 +344,41 @@ def auth_me(user: dict = Depends(require_user)):
     return standard_response(user)
 
 
+@app.post("/api/auth/change-password")
+def change_password(payload: ChangePasswordIn, request: Request, user: dict = Depends(require_user)):
+    if len(payload.new_password) < 6:
+        return standard_response(code=400, message="新密码至少 6 位")
+    row = find_user_by_email(user["email"])
+    if not row or not verify_password(payload.old_password, row["password_hash"]):
+        return standard_response(code=400, message="当前密码不正确")
+    conn = connect()
+    conn.execute(
+        "UPDATE users SET password_hash = ? WHERE id = ?",
+        (hash_password(payload.new_password), row["id"]),
+    )
+    conn.commit()
+    conn.close()
+    write_log("password_change", username=user["email"], target_type="auth", detail="修改了登录密码", request=request)
+    return standard_response({"message": "密码已更新"})
+
+
 @app.get("/api/news")
 def get_news(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
     keyword: Optional[str] = Query(None),
     source: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    admin: Optional[dict] = Depends(optional_admin),
 ):
     conn = connect()
     filters = []
     params = []
+    visible = status if admin and status in ("all", "draft", "published") else "published"
+    if visible == "draft":
+        filters.append("status = 'draft'")
+    elif visible == "published":
+        filters.append(published_clause())
     if keyword is not None and keyword.strip() != "":
         filters.append("(title LIKE ? OR summary LIKE ? OR source LIKE ?)")
         kw = f"%{keyword.strip()}%"
@@ -297,7 +387,7 @@ def get_news(
         filters.append("source = ?")
         params.append(source.strip())
     where = (" WHERE " + " AND ".join(filters)) if filters else ""
-    sql = "SELECT id, title, date, source, summary FROM news" + where
+    sql = "SELECT id, title, date, source, summary, status FROM news" + where
     sql += " ORDER BY date DESC, id DESC LIMIT ? OFFSET ?"
     rows = conn.execute(sql, [*params, page_size, (page - 1) * page_size]).fetchall()
     total = conn.execute("SELECT COUNT(*) FROM news" + where, params).fetchone()[0]
@@ -311,25 +401,28 @@ def get_news(
 
 
 @app.get("/api/news/{news_id}")
-def get_news_detail(news_id: int):
+def get_news_detail(news_id: int, admin: Optional[dict] = Depends(optional_admin)):
     conn = connect()
     row = conn.execute(
-        "SELECT id, title, date, source, summary, content FROM news WHERE id = ?",
+        "SELECT id, title, date, source, summary, content, status FROM news WHERE id = ?",
         (news_id,),
     ).fetchone()
     conn.close()
-    if not row:
+    if not row or (news_status(row) == "draft" and not admin):
         return standard_response(code=404, message="未找到该新闻")
     return standard_response(row_to_news(row, include_content=True))
 
 
 @app.post("/api/news")
 def create_news(news: NewsIn, request: Request, user: dict = Depends(require_admin)):
+    status = normalize_news_status(news.status)
+    if not status:
+        return standard_response(code=400, message="状态只能是草稿或已发布")
     try:
         conn = connect()
         cur = conn.execute(
-            "INSERT INTO news (title, date, source, summary, content) VALUES (?, ?, ?, ?, ?)",
-            (news.title, news.date, news.source, news.summary, news.content),
+            "INSERT INTO news (title, date, source, summary, content, status) VALUES (?, ?, ?, ?, ?, ?)",
+            (news.title, news.date, news.source, news.summary, news.content, status),
         )
         conn.commit()
         news_id = cur.lastrowid
@@ -342,7 +435,7 @@ def create_news(news: NewsIn, request: Request, user: dict = Depends(require_adm
             detail=f"新增新闻《{news.title}》",
             request=request,
         )
-        return standard_response({"id": news_id, **news.dict()})
+        return standard_response({"id": news_id, **news.dict(), "status": status})
     except Exception as e:
         traceback.print_exc()
         write_log(
@@ -358,11 +451,14 @@ def create_news(news: NewsIn, request: Request, user: dict = Depends(require_adm
 
 @app.put("/api/news/{news_id}")
 def update_news(news_id: int, news: NewsIn, request: Request, user: dict = Depends(require_admin)):
+    status = normalize_news_status(news.status)
+    if not status:
+        return standard_response(code=400, message="状态只能是草稿或已发布")
     try:
         conn = connect()
         conn.execute(
-            "UPDATE news SET title=?, date=?, source=?, summary=?, content=? WHERE id=?",
-            (news.title, news.date, news.source, news.summary, news.content, news_id),
+            "UPDATE news SET title=?, date=?, source=?, summary=?, content=?, status=? WHERE id=?",
+            (news.title, news.date, news.source, news.summary, news.content, status, news_id),
         )
         conn.commit()
         conn.close()
@@ -374,7 +470,7 @@ def update_news(news_id: int, news: NewsIn, request: Request, user: dict = Depen
             detail=f"编辑新闻《{news.title}》",
             request=request,
         )
-        return standard_response({"id": news_id, **news.dict()})
+        return standard_response({"id": news_id, **news.dict(), "status": status})
     except Exception as e:
         traceback.print_exc()
         write_log(
@@ -425,13 +521,13 @@ def delete_news(news_id: int, request: Request, user: dict = Depends(require_adm
 def get_products(keyword: Optional[str] = Query(None)):
     try:
         conn = connect()
-        sql = "SELECT id, name, price, category, image, description FROM products"
+        sql = "SELECT id, name, price, category, image, description, sort_order FROM products"
         params = []
         if keyword and keyword.strip():
             sql += " WHERE name LIKE ? OR category LIKE ? OR description LIKE ?"
             kw = f"%{keyword.strip()}%"
             params.extend([kw, kw, kw])
-        sql += " ORDER BY id ASC"
+        sql += " ORDER BY sort_order ASC, id ASC"
         rows = conn.execute(sql, params).fetchall()
         conn.close()
         return standard_response([row_to_product(row) for row in rows])
@@ -445,7 +541,7 @@ def get_product_detail(product_id: int):
     try:
         conn = connect()
         row = conn.execute(
-            "SELECT id, name, price, category, image, description FROM products WHERE id = ?",
+            "SELECT id, name, price, category, image, description, sort_order FROM products WHERE id = ?",
             (product_id,),
         ).fetchone()
         conn.close()
@@ -460,9 +556,13 @@ def get_product_detail(product_id: int):
 @app.post("/api/products")
 def create_product(product: ProductIn, request: Request, user: dict = Depends(require_admin)):
     conn = connect()
+    fields, error = prepare_product(product, conn)
+    if error:
+        conn.close()
+        return standard_response(code=400, message=error)
     cur = conn.execute(
-        "INSERT INTO products (name, price, category, image, description) VALUES (?, ?, ?, ?, ?)",
-        (product.name, product.price, product.category, product.image, product.description),
+        "INSERT INTO products (name, price, category, image, description, sort_order) VALUES (?, ?, ?, ?, ?, ?)",
+        (fields["name"], fields["price"], fields["category"], fields["image"], fields["description"], fields["sort_order"]),
     )
     conn.commit()
     product_id = cur.lastrowid
@@ -475,15 +575,19 @@ def create_product(product: ProductIn, request: Request, user: dict = Depends(re
         detail=f"新增产品《{product.name}》",
         request=request,
     )
-    return standard_response({"id": str(product_id), **product.dict()})
+    return standard_response({"id": str(product_id), **fields})
 
 
 @app.put("/api/products/{product_id}")
 def update_product(product_id: int, product: ProductIn, request: Request, user: dict = Depends(require_admin)):
     conn = connect()
+    fields, error = prepare_product(product, conn, product_id)
+    if error:
+        conn.close()
+        return standard_response(code=400, message=error)
     conn.execute(
-        "UPDATE products SET name=?, price=?, category=?, image=?, description=? WHERE id=?",
-        (product.name, product.price, product.category, product.image, product.description, product_id),
+        "UPDATE products SET name=?, price=?, category=?, image=?, description=?, sort_order=? WHERE id=?",
+        (fields["name"], fields["price"], fields["category"], fields["image"], fields["description"], fields["sort_order"], product_id),
     )
     conn.commit()
     conn.close()
@@ -495,7 +599,7 @@ def update_product(product_id: int, product: ProductIn, request: Request, user: 
         detail=f"编辑产品《{product.name}》",
         request=request,
     )
-    return standard_response({"id": str(product_id), **product.dict()})
+    return standard_response({"id": str(product_id), **fields})
 
 
 @app.delete("/api/products/{product_id}")
@@ -591,7 +695,7 @@ def reply_message(message_id: int, payload: MessageReplyIn, request: Request, us
     if not reply:
         return standard_response(code=400, message="回复内容不能为空")
     conn = connect()
-    row = conn.execute("SELECT id, subject FROM messages WHERE id = ?", (message_id,)).fetchone()
+    row = conn.execute("SELECT id, name, email, subject FROM messages WHERE id = ?", (message_id,)).fetchone()
     if not row:
         conn.close()
         return standard_response(code=404, message="未找到该留言")
@@ -602,16 +706,39 @@ def reply_message(message_id: int, payload: MessageReplyIn, request: Request, us
     )
     conn.commit()
     subject = row["subject"]
+    visitor_name = row["name"]
+    visitor_email = row["email"]
     conn.close()
+    smtp_ready = bool(os.environ.get("SMTP_HOST", "").strip())
+    email_status = "skipped"
+    if smtp_ready:
+        account_url = f"{public_base_url(request)}/account"
+        sent = send_email(
+            visitor_email,
+            f"{SITE_NAME}已回复您的留言",
+            (
+                f"{visitor_name}，您好：\n\n"
+                f"您在{SITE_NAME}的留言「{subject}」已有回复：\n\n"
+                f"{reply}\n\n"
+                f"也可登录网站，在「我的留言」中查看：\n{account_url}\n"
+            ),
+        )
+        email_status = "sent" if sent else "failed"
     write_log(
         "message_reply",
         username=user["email"],
         target_type="message",
         target_id=message_id,
-        detail=f"回复留言《{subject}》",
+        detail=f"回复留言《{subject}》" + {"sent": "，已发邮件", "failed": "，邮件发送失败", "skipped": ""}[email_status],
         request=request,
     )
-    return standard_response({"id": message_id, "reply": reply, "replied_at": replied_at, "status": "replied"})
+    return standard_response({
+        "id": message_id,
+        "reply": reply,
+        "replied_at": replied_at,
+        "status": "replied",
+        "email_status": email_status,
+    })
 
 
 @app.get("/api/my/messages")
@@ -655,6 +782,79 @@ def list_logs(
         "page": page,
         "page_size": page_size,
     })
+
+
+@app.get("/api/media/products")
+def list_product_images(_user: dict = Depends(require_admin)):
+    conn = connect()
+    used = {
+        str(row["image"] or "")
+        for row in conn.execute("SELECT image FROM products").fetchall()
+    }
+    conn.close()
+    items = []
+    for name in list_product_image_names():
+        url = f"/media/products/{name}"
+        path = uploaded_product_path(name)
+        items.append({
+            "name": name,
+            "url": url,
+            "used": url in used,
+            "deletable": bool(path and os.path.isfile(path) and url not in used),
+        })
+    return standard_response({"list": items})
+
+
+@app.post("/api/media/products")
+async def upload_product_image(
+    request: Request,
+    file: UploadFile = File(...),
+    user: dict = Depends(require_admin),
+):
+    data = await file.read(2 * 1024 * 1024 + 1)
+    try:
+        name = save_product_image(data)
+    except ValueError as exc:
+        return standard_response(code=400, message=str(exc))
+    url = f"/media/products/{name}"
+    write_log(
+        "media_upload",
+        username=user["email"],
+        target_type="media",
+        detail=f"上传产品图 {name}",
+        request=request,
+    )
+    return standard_response({"name": name, "url": url})
+
+
+@app.delete("/api/media/products/{name}")
+def delete_product_image(name: str, request: Request, user: dict = Depends(require_admin)):
+    url = f"/media/products/{name}"
+    conn = connect()
+    used = conn.execute("SELECT id FROM products WHERE image = ?", (url,)).fetchone()
+    conn.close()
+    if used:
+        return standard_response(code=400, message="仍有产品在使用这张图片，不能删除")
+    try:
+        delete_uploaded_product_image(name)
+    except ValueError as exc:
+        return standard_response(code=400, message=str(exc))
+    write_log(
+        "media_delete",
+        username=user["email"],
+        target_type="media",
+        detail=f"删除未使用的产品图 {name}",
+        request=request,
+    )
+    return standard_response({"message": "已删除"})
+
+
+@app.get("/media/{file_path:path}")
+def serve_media(file_path: str):
+    found = resolve_media_file(file_path)
+    if not found:
+        raise HTTPException(status_code=404, detail="Not Found")
+    return FileResponse(found)
 
 
 if os.path.isdir(DIST_DIR):

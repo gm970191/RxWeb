@@ -5,6 +5,7 @@ import path from 'path';
 
 function siteMediaPlugin(siteId) {
   const mediaDir = path.resolve(__dirname, '../deploy/sites', siteId, 'media');
+  const uploadDir = path.resolve(__dirname, '../media');
   const types = {
     '.jpg': 'image/jpeg',
     '.jpeg': 'image/jpeg',
@@ -12,20 +13,23 @@ function siteMediaPlugin(siteId) {
     '.gif': 'image/gif',
     '.webp': 'image/webp',
   };
+  function sendFile(root, req, res) {
+    if (!fs.existsSync(root)) return false;
+    const raw = decodeURIComponent((req.url || '/').split('?')[0]).replace(/^\/+/, '');
+    if (!raw || raw.includes('..')) return false;
+    const file = path.resolve(root, raw);
+    const base = root.endsWith(path.sep) ? root : root + path.sep;
+    if (!file.startsWith(base) || !fs.existsSync(file) || !fs.statSync(file).isFile()) return false;
+    res.setHeader('Content-Type', types[path.extname(file).toLowerCase()] || 'application/octet-stream');
+    fs.createReadStream(file).pipe(res);
+    return true;
+  }
   return {
     name: 'site-media',
     configureServer(server) {
-      if (!fs.existsSync(mediaDir)) return;
       server.middlewares.use('/media', (req, res, next) => {
-        const raw = decodeURIComponent((req.url || '/').split('?')[0]).replace(/^\/+/, '');
-        const file = path.resolve(mediaDir, raw);
-        const root = mediaDir.endsWith(path.sep) ? mediaDir : mediaDir + path.sep;
-        if (!file.startsWith(root) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
-          next();
-          return;
-        }
-        res.setHeader('Content-Type', types[path.extname(file).toLowerCase()] || 'application/octet-stream');
-        fs.createReadStream(file).pipe(res);
+        if (sendFile(uploadDir, req, res) || sendFile(mediaDir, req, res)) return;
+        next();
       });
     },
     closeBundle() {

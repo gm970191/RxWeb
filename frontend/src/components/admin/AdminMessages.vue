@@ -48,7 +48,7 @@
           <strong>已回复（{{ current.replied_at }}）</strong>
           <p>{{ current.reply }}</p>
         </div>
-        <el-input v-model="replyText" type="textarea" :rows="4" placeholder="请输入回复内容，将保存在后台供后续跟进" />
+        <el-input v-model="replyText" type="textarea" :rows="4" placeholder="请输入回复。已配置发信时会寄到对方邮箱，否则对方登录后在「我的留言」查看" />
       </div>
       <template #footer>
         <el-button @click="dialogVisible = false">关闭</el-button>
@@ -110,7 +110,12 @@ async function handleReply() {
   }
   try {
     const data = await replyMessage(current.value.id, replyText.value.trim())
-    ElMessage.success('回复已保存')
+    const tips = {
+      sent: '回复已保存，并已发到对方邮箱',
+      failed: '回复已保存，但邮件发送失败',
+      skipped: '回复已保存。当前未配置发信，对方登录后可在「我的留言」查看',
+    }
+    ElMessage.success(tips[data.email_status] || tips.skipped)
     current.value = { ...current.value, ...data }
     dialogVisible.value = false
     await loadMessages()

@@ -88,3 +88,16 @@ def require_admin(authorization: Optional[str] = Header(None)) -> dict:
     if user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="需要管理员权限")
     return user
+
+
+def optional_admin(authorization: Optional[str] = Header(None)) -> Optional[dict]:
+    """公开接口用来识别管理员。无效登录不当成错误，避免前台被过期令牌打断。"""
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    try:
+        user = get_current_user(authorization)
+    except HTTPException:
+        return None
+    if user.get("role") != "admin":
+        return None
+    return user

@@ -28,6 +28,9 @@ RxWeb-deploy.zip
 # 本机按站点分开的数据库，不提交
 data/
 
+# 后台上传的产品图。随站点发布的图在 deploy/sites/<站点>/media
+/media/
+
 # 忽略运行时文件
 logs/
 rxweb.pid

@@ -49,6 +49,7 @@ const labels = {
   register: '用户注册',
   password_reset_request: '申请重置密码',
   password_reset: '密码已重置',
+  password_change: '修改密码',
   news_create: '新增新闻',
   news_update: '编辑新闻',
   news_delete: '删除新闻',
@@ -57,6 +58,8 @@ const labels = {
   product_delete: '删除产品',
   message_create: '访客留言',
   message_reply: '回复留言',
+  media_upload: '上传产品图',
+  media_delete: '删除产品图',
 }
 
 const logList = ref([])

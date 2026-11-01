@@ -31,3 +31,10 @@ export function resetPassword(token, password) {
 export function fetchMe() {
   return apiRequest('/api/auth/me')
 }
+
+export function changePassword(oldPassword, newPassword) {
+  return apiRequest('/api/auth/change-password', {
+    method: 'POST',
+    body: { old_password: oldPassword, new_password: newPassword },
+  })
+}

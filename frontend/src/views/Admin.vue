@@ -7,6 +7,7 @@
       </div>
       <div class="admin-user">
         <span>{{ auth.displayName }}</span>
+        <el-button @click="passwordVisible = true">修改密码</el-button>
         <el-button @click="handleLogout">退出登录</el-button>
       </div>
     </div>
@@ -26,16 +27,40 @@
         <router-view />
       </section>
     </div>
+
+    <el-dialog v-model="passwordVisible" title="修改密码" width="420px" @closed="resetPasswordForm">
+      <el-form :model="passwordForm" label-width="90px">
+        <el-form-item label="当前密码">
+          <el-input v-model="passwordForm.oldPassword" type="password" show-password />
+        </el-form-item>
+        <el-form-item label="新密码">
+          <el-input v-model="passwordForm.newPassword" type="password" show-password placeholder="至少 6 位" />
+        </el-form-item>
+        <el-form-item label="确认新密码">
+          <el-input v-model="passwordForm.confirmPassword" type="password" show-password @keyup.enter="handleChangePassword" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="passwordVisible = false">取消</el-button>
+        <el-button type="primary" :loading="passwordSaving" @click="handleChangePassword">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
+import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { useAuthStore } from '../stores/auth'
+import { changePassword } from '../services/authService'
 
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
+const passwordVisible = ref(false)
+const passwordSaving = ref(false)
+const passwordForm = reactive({ oldPassword: '', newPassword: '', confirmPassword: '' })
 
 const menus = [
   { path: '/admin/news', label: '新闻管理' },
@@ -51,6 +76,37 @@ function isActive(path) {
 async function handleLogout() {
   await auth.logout()
   router.push('/login')
+}
+
+function resetPasswordForm() {
+  passwordForm.oldPassword = ''
+  passwordForm.newPassword = ''
+  passwordForm.confirmPassword = ''
+}
+
+async function handleChangePassword() {
+  if (!passwordForm.oldPassword || !passwordForm.newPassword) {
+    ElMessage.warning('请填写当前密码和新密码')
+    return
+  }
+  if (passwordForm.newPassword.length < 6) {
+    ElMessage.warning('新密码至少 6 位')
+    return
+  }
+  if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+    ElMessage.warning('两次输入的新密码不一致')
+    return
+  }
+  passwordSaving.value = true
+  try {
+    await changePassword(passwordForm.oldPassword, passwordForm.newPassword)
+    ElMessage.success('密码已更新')
+    passwordVisible.value = false
+  } catch (e) {
+    ElMessage.error(e.message)
+  } finally {
+    passwordSaving.value = false
+  }
 }
 </script>
 

@@ -2,6 +2,11 @@
   <div>
     <div class="admin-toolbar">
       <el-button type="primary" @click="openEditDialog()">新增新闻</el-button>
+      <el-radio-group v-model="statusFilter" @change="handleFilter">
+        <el-radio-button label="all">全部</el-radio-button>
+        <el-radio-button label="published">已发布</el-radio-button>
+        <el-radio-button label="draft">草稿</el-radio-button>
+      </el-radio-group>
       <div class="admin-search">
         <el-input v-model="keyword" placeholder="搜索标题/摘要/来源" @keyup.enter="handleSearch" />
         <el-button @click="handleSearch">搜索</el-button>
@@ -13,6 +18,13 @@
         <el-table-column prop="title" label="标题" />
         <el-table-column prop="date" label="日期" width="120" />
         <el-table-column prop="source" label="来源" width="120" />
+        <el-table-column label="状态" width="90">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 'draft' ? 'info' : 'success'" size="small">
+              {{ row.status === 'draft' ? '草稿' : '已发布' }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="summary" label="摘要" />
         <el-table-column label="操作" width="220">
           <template #default="{ row }">
@@ -50,6 +62,13 @@
         <el-form-item label="正文" prop="content">
           <el-input v-model="editForm.content" type="textarea" :rows="6" placeholder="请输入正文" />
         </el-form-item>
+        <el-form-item label="状态" prop="status">
+          <el-radio-group v-model="editForm.status">
+            <el-radio label="draft">草稿</el-radio>
+            <el-radio label="published">发布</el-radio>
+          </el-radio-group>
+          <p class="field-hint">草稿只在后台可见，选「发布」后才会出现在新闻动态。</p>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="editDialogVisible = false">取消</el-button>
@@ -82,10 +101,11 @@ const total = ref(0)
 const page = ref(1)
 const pageSize = ref(10)
 const keyword = ref('')
+const statusFilter = ref('all')
 const loading = ref(false)
 const editDialogVisible = ref(false)
 const detailDialogVisible = ref(false)
-const editForm = reactive({ id: null, title: '', date: '', source: '', summary: '', content: '' })
+const editForm = reactive({ id: null, title: '', date: '', source: '', summary: '', content: '', status: 'draft' })
 const detailData = ref({})
 const formRef = ref()
 
@@ -95,12 +115,18 @@ const rules = {
   source: [{ required: true, message: '请输入来源', trigger: 'blur' }],
   summary: [{ required: true, message: '请输入摘要', trigger: 'blur' }],
   content: [{ required: true, message: '请输入正文', trigger: 'blur' }],
+  status: [{ required: true, message: '请选择状态', trigger: 'change' }],
 }
 
 async function loadNews() {
   loading.value = true
   try {
-    const data = await fetchNews({ page: page.value, pageSize: pageSize.value, keyword: keyword.value })
+    const data = await fetchNews({
+      page: page.value,
+      pageSize: pageSize.value,
+      keyword: keyword.value,
+      status: statusFilter.value,
+    })
     newsList.value = data.list
     total.value = data.total
   } catch (e) {
@@ -113,9 +139,9 @@ async function loadNews() {
 async function openEditDialog(row) {
   if (row) {
     const detail = await fetchNewsDetail(row.id)
-    Object.assign(editForm, detail)
+    Object.assign(editForm, detail, { status: detail.status === 'draft' ? 'draft' : 'published' })
   } else {
-    Object.assign(editForm, { id: null, title: '', date: '', source: '', summary: '', content: '' })
+    Object.assign(editForm, { id: null, title: '', date: '', source: '', summary: '', content: '', status: 'draft' })
   }
   editDialogVisible.value = true
 }
@@ -164,5 +190,19 @@ function handleSearch() {
   loadNews()
 }
 
+function handleFilter() {
+  page.value = 1
+  loadNews()
+}
+
 onMounted(loadNews)
 </script>
+
+<style scoped>
+.field-hint {
+  margin: 6px 0 0;
+  color: #909399;
+  font-size: 12px;
+  line-height: 1.5;
+}
+</style>

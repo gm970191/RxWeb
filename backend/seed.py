@@ -83,7 +83,8 @@ c.execute('''CREATE TABLE IF NOT EXISTS products (
     price TEXT,
     category TEXT,
     image TEXT,
-    description TEXT
+    description TEXT,
+    sort_order INTEGER
 )''')
 c.execute('''DROP TABLE IF EXISTS news''')
 c.execute('''CREATE TABLE IF NOT EXISTS news (
@@ -92,7 +93,8 @@ c.execute('''CREATE TABLE IF NOT EXISTS news (
     date TEXT,
     source TEXT,
     summary TEXT,
-    content TEXT
+    content TEXT,
+    status TEXT
 )''')
 c.execute('''CREATE TABLE IF NOT EXISTS downloads (
     id INTEGER PRIMARY KEY,
@@ -149,8 +151,14 @@ c.execute('DELETE FROM admins')
 c.execute('DELETE FROM users')
 
 # 插入数据
-c.executemany('INSERT INTO products VALUES (?, ?, ?, ?, ?, ?)', products)
-c.executemany('INSERT INTO news VALUES (?, ?, ?, ?, ?, ?)', news)
+c.executemany(
+    'INSERT INTO products (id, name, price, category, image, description, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [(*row[:6], row[0]) for row in products],
+)
+c.executemany(
+    'INSERT INTO news (id, title, date, source, summary, content, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [(*row[:6], 'published') for row in news],
+)
 c.executemany('INSERT INTO downloads VALUES (?, ?, ?, ?, ?, ?)', downloads)
 c.executemany(
     'INSERT INTO messages (name, email, subject, content, created_at, status, reply, replied_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',

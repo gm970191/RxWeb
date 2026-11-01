@@ -19,6 +19,12 @@ def connect():
     return conn
 
 
+def _add_column(cursor, table: str, name: str, ddl: str) -> None:
+    existing = {row[1] for row in cursor.execute(f"PRAGMA table_info({table})")}
+    if name not in existing:
+        cursor.execute(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}")
+
+
 def init_schema():
     """补齐后台所需表，不删除已有产品和新闻。"""
     from app.auth import hash_password
@@ -114,6 +120,10 @@ def init_schema():
         )
         """
     )
+    _add_column(c, "products", "sort_order", "INTEGER")
+    _add_column(c, "news", "status", "TEXT")
+    c.execute("UPDATE products SET sort_order = id WHERE sort_order IS NULL")
+    c.execute("UPDATE news SET status = 'published' WHERE status IS NULL OR status = ''")
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     if DEFAULT_ADMIN_EMAIL:
         c.execute(
