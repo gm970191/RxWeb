@@ -1,11 +1,7 @@
 <template>
   <div class="downloads-container">
+    <PageBanner title="资源下载" />
     <el-card class="box-card">
-      <template #header>
-        <div class="card-header">
-          <span>资源下载</span>
-        </div>
-      </template>
       <div class="search-bar">
         <el-input
           v-model="searchQuery"
@@ -13,31 +9,20 @@
           clearable
         />
       </div>
-      <div class="download-table table-scroll">
-        <el-table :data="pagedDownloads" style="width: 100%; min-width: 720px">
-          <el-table-column prop="name" label="文件名" width="250" />
-          <el-table-column prop="description" label="描述" />
-          <el-table-column prop="version" label="版本" width="100" />
-          <el-table-column prop="size" label="大小" width="100" />
-          <el-table-column prop="date" label="发布日期" width="120" />
-          <el-table-column label="操作" width="120">
-            <template #default>
-              <el-button type="primary" size="small" @click="handleDownload">下载</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </div>
-      <div class="download-cards">
-        <el-card v-for="item in pagedDownloads" :key="item.id || item.name" class="download-card">
-          <div class="download-card-title">{{ item.name }}</div>
-          <p class="download-card-desc">{{ item.description }}</p>
-          <div class="download-card-meta">
-            <span>版本 {{ item.version }}</span>
-            <span>{{ item.size }}</span>
-            <span>{{ item.date }}</span>
+      <div class="download-list">
+        <article v-for="item in pagedDownloads" :key="item.id || item.name" class="download-item">
+          <div class="download-body">
+            <h3>{{ item.name }}</h3>
+            <p>{{ item.description }}</p>
+            <div class="download-meta">
+              <span>版本 {{ item.version }}</span>
+              <span>{{ item.size }}</span>
+              <span>{{ item.date }}</span>
+            </div>
           </div>
-          <el-button type="primary" size="small" @click="handleDownload">下载</el-button>
-        </el-card>
+          <el-button type="primary" @click="handleDownload">下载</el-button>
+        </article>
+        <el-empty v-if="!pagedDownloads.length" description="没有匹配的资料" />
       </div>
     </el-card>
 
@@ -57,8 +42,9 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { getMockDownloads } from '../services/downloadService'
 import { ElMessage } from 'element-plus'
+import PageBanner from '../components/PageBanner.vue'
+import { getMockDownloads } from '../services/downloadService'
 
 const downloadList = ref([])
 const currentPage = ref(1)
@@ -104,21 +90,56 @@ const handleDownload = () => {
   margin: auto;
   padding: 24px 0;
 }
-.card-header {
-  font-size: 20px;
-  font-weight: bold;
-}
 .search-bar {
-  margin-bottom: 16px;
+  margin-bottom: 8px;
 }
 .pagination-bar {
   margin-top: 24px;
   display: flex;
   justify-content: center;
 }
-
-.download-cards {
-  display: none;
+.download-list {
+  display: flex;
+  flex-direction: column;
+}
+.download-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 18px 0;
+  border-bottom: 1px solid #ebeef5;
+}
+.download-item:last-of-type {
+  border-bottom: none;
+}
+.download-body {
+  min-width: 0;
+  flex: 1;
+}
+.download-body h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+  word-break: break-word;
+}
+.download-body p {
+  margin: 0 0 10px;
+  color: #606266;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.download-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  color: #909399;
+  font-size: 13px;
+}
+.download-item :deep(.el-button) {
+  flex: none;
+  margin-top: 2px;
 }
 
 @media (max-width: 768px) {
@@ -126,40 +147,12 @@ const handleDownload = () => {
     padding: 8px 0 16px;
   }
 
-  .download-table {
-    display: none;
-  }
-
-  .download-cards {
-    display: flex;
+  .download-item {
     flex-direction: column;
     gap: 12px;
   }
 
-  .download-card-title {
-    font-size: 16px;
-    font-weight: 600;
-    margin-bottom: 8px;
-    word-break: break-word;
-  }
-
-  .download-card-desc {
-    margin: 0 0 10px;
-    color: #606266;
-    font-size: 14px;
-    line-height: 1.5;
-  }
-
-  .download-card-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px 12px;
-    margin-bottom: 12px;
-    color: #909399;
-    font-size: 13px;
-  }
-
-  .download-card :deep(.el-button) {
+  .download-item :deep(.el-button) {
     width: 100%;
   }
 }

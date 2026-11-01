@@ -29,7 +29,6 @@
                 <p class="desc">{{ item.description }}</p>
                 <div class="meta-row">
                   <router-link :to="{ name: 'ProductDetail', params: { id: item.id } }" class="detail-link">详情</router-link>
-                  <span class="price">{{ formatPrice(item.price) }}</span>
                 </div>
               </div>
             </el-card>
@@ -54,7 +53,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { fetchProducts, getCategories, getMockProducts } from '../services/productService'
-import { formatPrice } from '../utils/price'
 
 const products = ref([])
 const categories = ref([])
@@ -123,7 +121,6 @@ function selectCategory(category) {
 .detail-link:hover {
   color: #66b1ff;
 }
-.price { color: #e4393c; font-weight: bold; white-space: nowrap; }
 .desc {
   color: #888;
   font-size: 13px;

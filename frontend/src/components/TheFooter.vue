@@ -36,17 +36,20 @@ export default {
 
 <style scoped>
 .footer {
+  --el-footer-height: auto;
+  height: auto;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   gap: 8px;
-  padding: 24px;
+  padding: 22px 24px 26px;
   background: #0b3d73;
   color: rgba(255, 255, 255, 0.78);
   text-align: center;
   border-top: 3px solid #f0b429;
   font-size: 14px;
+  line-height: 1.6;
 }
 .footer a {
   color: #d6ecff;
@@ -59,9 +62,14 @@ export default {
 
 @media (max-width: 768px) {
   .footer {
-    padding: 20px 16px;
+    padding: 28px 16px 32px;
     font-size: 12px;
-    line-height: 1.6;
+    line-height: 1.7;
+    gap: 12px;
+  }
+
+  .footer > div {
+    padding: 4px 0;
   }
 
   .footer a {

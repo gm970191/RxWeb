@@ -1,25 +1,29 @@
 <template>
   <div class="product-detail-container">
+    <nav class="crumb" aria-label="当前位置">
+      <router-link to="/products">产品中心</router-link>
+      <span class="sep" aria-hidden="true">/</span>
+      <span aria-current="page">详情</span>
+    </nav>
     <el-card v-if="product">
       <div class="detail-layout">
         <div class="image-section">
-          <div class="image-zoomer-wrapper">
-            <img
-              :src="product.image"
-              class="main-image"
-              @mousemove="onMouseMove"
-              @mouseleave="onMouseLeave"
-              ref="imgRef"
-            />
+          <div
+            class="image-zoomer-wrapper"
+            @mousemove="onMouseMove"
+            @mouseleave="onMouseLeave"
+          >
+            <img :src="product.image" class="main-image" ref="imgRef" alt="" />
             <div v-if="showZoom" class="zoom-lens" :style="lensStyle"></div>
-            <div v-if="showZoom" class="zoom-result" :style="zoomResultStyle">
-              <img :src="product.image" :style="zoomImgStyle" />
-            </div>
           </div>
+          <teleport to="body">
+            <div v-if="showZoom" class="zoom-result" :style="zoomResultStyle">
+              <img :src="product.image" class="zoom-image" alt="" :style="zoomImgStyle" />
+            </div>
+          </teleport>
         </div>
         <div class="info-section">
           <h1 class="product-title">{{ product.name }}</h1>
-          <div class="product-price">{{ formatPrice(product.price) }}</div>
           <div class="product-desc">{{ product.description }}</div>
         </div>
       </div>
@@ -32,7 +36,6 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { fetchProductDetail, getMockProducts } from '../services/productService'
-import { formatPrice } from '../utils/price'
 
 const route = useRoute()
 const product = ref(null)
@@ -55,64 +58,62 @@ const imgRef = ref(null)
 
 function onMouseMove(e) {
   if (window.matchMedia('(max-width: 768px)').matches) return
-  showZoom.value = true
   const img = imgRef.value
+  if (!img) return
   const rect = img.getBoundingClientRect()
-  const lensSize = 100 // 放大镜区域更大
-  const zoom = 2.5
-  // 放大区宽高与图片等比，且更大
-  const zoomBoxWidth = rect.width * 1.6
-  const zoomBoxHeight = rect.height * 1.6
+  if (!rect.width || !rect.height) return
 
-  // 限制 lens 不超出图片且保证放大区无留白
-  let x = e.clientX - rect.left
-  let y = e.clientY - rect.top
-  let lensX = x - lensSize / 2
-  let lensY = y - lensSize / 2
-  // 限制 lens 范围，保证放大区无留白
-  lensX = Math.max(0, Math.min(lensX, rect.width - lensSize))
-  lensY = Math.max(0, Math.min(lensY, rect.height - lensSize))
+  const nw = img.naturalWidth || rect.width
+  const nh = img.naturalHeight || rect.height
+  const fit = Math.min(rect.width / nw, rect.height / nh)
+  const dispW = nw * fit
+  const dispH = nh * fit
+  const padX = (rect.width - dispW) / 2
+  const padY = (rect.height - dispH) / 2
 
+  const roomRight = window.innerWidth - rect.right - 28
+  const roomBelow = window.innerHeight - rect.bottom - 28
+  const zoom = 4
+  let panel = 520
+  const placeRight = roomRight >= 320
+  if (placeRight) {
+    panel = Math.min(560, roomRight)
+  } else if (roomBelow >= 280) {
+    panel = Math.min(560, roomBelow)
+  } else {
+    showZoom.value = false
+    return
+  }
+  const lensSize = Math.min(dispW, dispH, panel / zoom)
+  const x = e.clientX - rect.left - padX
+  const y = e.clientY - rect.top - padY
+  const lensX = Math.max(0, Math.min(x - lensSize / 2, dispW - lensSize))
+  const lensY = Math.max(0, Math.min(y - lensSize / 2, dispH - lensSize))
+
+  showZoom.value = true
   lensStyle.value = {
-    left: lensX + 'px',
-    top: lensY + 'px',
-    width: lensSize + 'px',
-    height: lensSize + 'px',
-    position: 'absolute',
-    border: '1.5px solid #409EFF',
-    background: 'rgba(64,158,255,0.1)',
-    pointerEvents: 'none',
-    zIndex: 2
+    left: `${padX + lensX}px`,
+    top: `${padY + lensY}px`,
+    width: `${lensSize}px`,
+    height: `${lensSize}px`,
   }
+  const left = placeRight
+    ? rect.right + 16
+    : Math.max(12, Math.min(rect.left, window.innerWidth - panel - 12))
+  const top = placeRight
+    ? Math.max(12, Math.min(rect.top, window.innerHeight - panel - 12))
+    : rect.bottom + 12
   zoomResultStyle.value = {
-    left: rect.width + 40 + 'px',
-    top: 0,
-    width: zoomBoxWidth + 'px',
-    height: zoomBoxHeight + 'px',
-    position: 'absolute',
-    border: '1px solid #eee',
-    background: '#fff',
-    overflow: 'hidden',
-    zIndex: 3,
-    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-    borderRadius: '8px'
+    left: `${left}px`,
+    top: `${top}px`,
+    width: `${panel}px`,
+    height: `${panel}px`,
   }
-  // 限制放大图片的偏移，保证放大区无留白
-  let imgLeft = -lensX * zoom
-  let imgTop = -lensY * zoom
-  // 限制最大偏移，防止留白
-  const maxLeft = -(rect.width * zoom - zoomBoxWidth)
-  const maxTop = -(rect.height * zoom - zoomBoxHeight)
-  if (imgLeft < maxLeft) imgLeft = maxLeft
-  if (imgTop < maxTop) imgTop = maxTop
-  if (imgLeft > 0) imgLeft = 0
-  if (imgTop > 0) imgTop = 0
   zoomImgStyle.value = {
-    position: 'absolute',
-    left: imgLeft + 'px',
-    top: imgTop + 'px',
-    width: rect.width * zoom + 'px',
-    height: rect.height * zoom + 'px',
+    width: `${dispW * zoom}px`,
+    height: `${dispH * zoom}px`,
+    left: `${-lensX * zoom}px`,
+    top: `${-lensY * zoom}px`,
   }
 }
 function onMouseLeave() {
@@ -126,8 +127,26 @@ function onMouseLeave() {
   margin: 0 auto;
   min-height: 100vh;
   display: block;
-  padding-top: 32px;
+  padding-top: 8px;
   padding-bottom: 32px;
+}
+.crumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+  font-size: 15px;
+  color: #909399;
+}
+.crumb a {
+  color: #0b3d73;
+  text-decoration: none;
+}
+.crumb a:hover {
+  color: #1d6fb8;
+}
+.sep {
+  color: #c0c4cc;
 }
 .detail-layout {
   display: flex;
@@ -136,35 +155,46 @@ function onMouseLeave() {
 }
 .image-section {
   position: relative;
-  width: 360px;
-  min-width: 320px;
-  height: 320px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 420px;
+  min-width: 280px;
+  flex: none;
 }
 .image-zoomer-wrapper {
   position: relative;
-  width: 320px;
-  height: 320px;
+  width: 100%;
+  aspect-ratio: 1;
+  background: #f4f7fb;
+  border-radius: 8px;
+  cursor: crosshair;
 }
 .main-image {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
 .zoom-lens {
+  position: absolute;
   pointer-events: none;
-  border-radius: 4px;
+  border: 1px solid rgba(11, 61, 115, 0.55);
+  background: rgba(255, 255, 255, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7);
 }
 .zoom-result {
-  /* 具体宽高由内联样式控制 */
+  position: fixed;
+  z-index: 40;
+  overflow: hidden;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  background: #f4f7fb;
+  box-shadow: 0 16px 40px rgba(11, 61, 115, 0.22);
+  pointer-events: none;
+}
+.zoom-image {
   position: absolute;
-  top: 0;
-  left: 344px;
-  background: #fff;
+  max-width: none;
+  max-height: none;
+  object-fit: fill;
 }
 .info-section {
   flex: 1;
@@ -174,12 +204,6 @@ function onMouseLeave() {
 }
 .product-title {
   font-size: 28px;
-  font-weight: bold;
-  margin-bottom: 16px;
-}
-.product-price {
-  color: #e4393c;
-  font-size: 22px;
   font-weight: bold;
   margin-bottom: 16px;
 }
@@ -224,10 +248,6 @@ function onMouseLeave() {
 
   .product-title {
     font-size: 22px;
-  }
-
-  .product-price {
-    font-size: 20px;
   }
 }
 </style> 

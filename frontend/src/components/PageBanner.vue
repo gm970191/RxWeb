@@ -1,17 +1,22 @@
 <template>
-  <section v-if="image" class="page-banner">
-    <img :src="image" alt="" />
+  <section class="page-banner">
+    <img :src="src" alt="" />
     <div class="veil"></div>
-    <h1>{{ title }}</h1>
+    <component :is="asHeading ? 'h1' : 'div'" class="banner-title">{{ title }}</component>
   </section>
-  <h1 v-else class="plain-title">{{ title }}</h1>
 </template>
 
 <script setup>
-defineProps({
+import { computed } from 'vue'
+import { defaultPageBanner } from '../sharedMedia'
+
+const props = defineProps({
   title: { type: String, default: '' },
   image: { type: String, default: '' },
+  asHeading: { type: Boolean, default: true },
 })
+
+const src = computed(() => props.image || defaultPageBanner)
 </script>
 
 <style scoped>
@@ -41,17 +46,13 @@ defineProps({
   background: linear-gradient(180deg, rgba(11, 61, 115, 0.08) 35%, rgba(11, 61, 115, 0.72) 100%);
 }
 
-.page-banner h1,
-.plain-title {
-  margin: 0;
-  font-size: 32px;
-  color: #0b3d73;
-}
-
-.page-banner h1 {
+.banner-title {
   position: relative;
   z-index: 1;
+  margin: 0;
   padding: 24px 28px;
+  font-size: 32px;
+  font-weight: 600;
   color: #fff;
   text-shadow: 0 2px 10px rgba(11, 61, 115, 0.45);
 }
@@ -62,13 +63,9 @@ defineProps({
     margin-bottom: 20px;
   }
 
-  .page-banner h1,
-  .plain-title {
-    font-size: 26px;
-  }
-
-  .page-banner h1 {
+  .banner-title {
     padding: 16px;
+    font-size: 26px;
   }
 }
 </style>

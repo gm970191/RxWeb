@@ -15,7 +15,7 @@ describe('产品列表页', () => {
     cy.get('.product-card').first().within(() => {
       cy.get('img').should('be.visible')
       cy.get('h3').should('not.be.empty')
-      cy.get('.price').should('contain', '￥')
+      cy.get('.price').should('not.exist')
     })
   })
 

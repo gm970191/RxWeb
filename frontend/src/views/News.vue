@@ -1,13 +1,13 @@
 <template>
   <div class="news-container">
+    <PageBanner title="新闻动态" />
     <el-card class="box-card">
-      <template #header>
+      <template v-if="sourceOptions.length" #header>
         <div class="card-header">
-          <span>新闻动态</span>
-          <div v-if="sourceOptions.length" class="source-bar">
+          <div class="source-bar">
             <button
               v-for="item in sourceOptions"
-              :key="item"
+              :key="item.value"
               type="button"
               :class="{ active: selectedSource === item.value }"
               @click="selectSource(item.value)"
@@ -50,6 +50,7 @@
 <script setup>
 import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import PageBanner from '../components/PageBanner.vue'
 import { fetchNews } from '../services/newsService'
 import { site } from '../site'
 
@@ -58,14 +59,17 @@ const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(5)
 const loading = ref(false)
-const selectedSource = ref(site.defaultNewsSource || '')
+const selectedSource = ref('')
 const router = useRouter()
 const sourceOptions = computed(() => {
   const sources = site.newsSources || []
   if (!sources.length) return []
+  const company = '公司新闻'
+  const rest = sources.filter((label) => label !== company)
+  const ordered = sources.includes(company) ? [company, ...rest] : rest
   return [
-    ...sources.map((label) => ({ label, value: label })),
     { label: '全部', value: '' },
+    ...ordered.map((label) => ({ label, value: label })),
   ]
 })
 

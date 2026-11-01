@@ -32,7 +32,6 @@
             <div class="product-info">
               <h3>{{ product.name }}</h3>
               <p class="desc">{{ product.description }}</p>
-              <div class="price">{{ formatPrice(product.price) }}</div>
             </div>
           </el-card>
         </el-col>
@@ -63,12 +62,12 @@ import { useRouter } from 'vue-router'
 import { fetchProducts, getMockProducts } from '../services/productService'
 import { fetchNews, getMockNews } from '../services/newsService'
 import { site } from '../site'
-import { formatPrice } from '../utils/price'
+import { defaultHeroBanners } from '../sharedMedia'
 
 const router = useRouter()
 const featuredProducts = ref([])
 const latestNews = ref([])
-const banners = site.banners || []
+const banners = site.banners?.length ? site.banners : defaultHeroBanners
 
 function pickFeatured(list) {
   const ids = (site.featuredProductIds || []).map((id) => String(id))
@@ -87,13 +86,13 @@ onMounted(async () => {
   }
 
   try {
-    const data = await fetchNews({ page: 1, pageSize: 3, source: site.defaultNewsSource || '' })
-    latestNews.value = data.list || []
+    const data = await fetchNews({ page: 1, pageSize: 3 })
+    latestNews.value = (data.list || []).slice(0, 3)
   } catch {
     const mock = await getMockNews()
-    latestNews.value = site.defaultNewsSource
-      ? mock.filter((item) => item.source === site.defaultNewsSource).slice(0, 3)
-      : mock.slice(0, 3)
+    latestNews.value = [...mock]
+      .sort((a, b) => String(b.date).localeCompare(String(a.date)))
+      .slice(0, 3)
   }
 })
 
@@ -199,11 +198,6 @@ const goToNews = (id) => {
 }
 .product-info {
   padding: 14px;
-}
-.price {
-  color: #e4393c;
-  font-weight: bold;
-  margin-top: 8px;
 }
 .desc {
   color: #888;

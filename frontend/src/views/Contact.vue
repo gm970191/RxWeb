@@ -1,5 +1,6 @@
 <template>
   <div class="contact-container">
+    <PageBanner title="联系我们" />
     <el-row :gutter="40">
       <el-col :xs="24" :sm="24" :md="12">
         <el-card class="box-card">
@@ -52,6 +53,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import PageBanner from '../components/PageBanner.vue'
 import { createMessage } from '../services/messageService'
 import { useAuthStore } from '../stores/auth'
 import { site } from '../site'
