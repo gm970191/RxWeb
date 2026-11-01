@@ -71,9 +71,11 @@ const latestNews = ref([])
 const banners = site.banners || []
 
 function pickFeatured(list) {
-  const ids = site.featuredProductIds || []
+  const ids = (site.featuredProductIds || []).map((id) => String(id))
   if (!ids.length) return (list || []).slice(0, 3)
-  const picked = ids.map((id) => (list || []).find((item) => item.id === id)).filter(Boolean)
+  const picked = ids
+    .map((id) => (list || []).find((item) => String(item.id) === id))
+    .filter(Boolean)
   return picked.length ? picked : (list || []).slice(0, 3)
 }
 
