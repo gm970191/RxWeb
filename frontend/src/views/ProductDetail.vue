@@ -1,10 +1,10 @@
 <template>
-  <div class="product-detail-container">
-    <nav class="crumb" aria-label="当前位置">
-      <router-link to="/products">产品中心</router-link>
-      <span class="sep" aria-hidden="true">/</span>
-      <span aria-current="page">详情</span>
-    </nav>
+  <div class="product-detail-container page-shell">
+    <PageBanner
+      title="产品详情"
+      :as-heading="false"
+      :crumbs="[{ label: '产品中心', to: '/products' }, { label: '详情' }]"
+    />
     <el-card v-if="product">
       <div class="detail-layout">
         <div class="image-section">
@@ -35,6 +35,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import PageBanner from '../components/PageBanner.vue'
 import { fetchProductDetail, getMockProducts } from '../services/productService'
 
 const route = useRoute()
@@ -122,32 +123,6 @@ function onMouseLeave() {
 </script>
 
 <style scoped>
-.product-detail-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  min-height: 100vh;
-  display: block;
-  padding-top: 8px;
-  padding-bottom: 32px;
-}
-.crumb {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 16px;
-  font-size: 15px;
-  color: #909399;
-}
-.crumb a {
-  color: #0b3d73;
-  text-decoration: none;
-}
-.crumb a:hover {
-  color: #1d6fb8;
-}
-.sep {
-  color: #c0c4cc;
-}
 .detail-layout {
   display: flex;
   gap: 40px;
@@ -214,12 +189,6 @@ function onMouseLeave() {
 }
 
 @media (max-width: 768px) {
-  .product-detail-container {
-    padding-top: 8px;
-    padding-bottom: 16px;
-    min-height: auto;
-  }
-
   .detail-layout {
     flex-direction: column;
     gap: 16px;

@@ -1,5 +1,5 @@
 <template>
-  <div class="contact-container">
+  <div class="contact-container page-shell">
     <PageBanner title="联系我们" />
     <el-row :gutter="40">
       <el-col :xs="24" :sm="24" :md="12">
@@ -112,11 +112,6 @@ const handleSubmit = () => {
 </script>
 
 <style scoped>
-.contact-container {
-  max-width: 1200px;
-  margin: auto;
-  padding: 24px 0;
-}
 .card-header {
   font-size: 20px;
   font-weight: bold;
@@ -140,10 +135,6 @@ const handleSubmit = () => {
 }
 
 @media (max-width: 768px) {
-  .contact-container {
-    padding: 8px 0 16px;
-  }
-
   .contact-container :deep(.el-col) {
     margin-bottom: 16px;
   }

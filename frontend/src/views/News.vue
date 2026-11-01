@@ -1,5 +1,5 @@
 <template>
-  <div class="news-container">
+  <div class="news-container page-shell">
     <PageBanner title="新闻动态" />
     <el-card class="box-card">
       <template v-if="sourceOptions.length" #header>
@@ -109,11 +109,6 @@ function goToDetail(id) {
 </script>
 
 <style scoped>
-.news-container {
-  max-width: 1200px;
-  margin: auto;
-  padding: 24px 0;
-}
 .card-header {
   display: flex;
   justify-content: space-between;
@@ -184,10 +179,6 @@ function goToDetail(id) {
 }
 
 @media (max-width: 768px) {
-  .news-container {
-    padding: 8px 0 16px;
-  }
-
   .card-header {
     flex-direction: column;
     align-items: flex-start;

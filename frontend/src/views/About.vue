@@ -1,7 +1,7 @@
 <template>
-  <div v-if="page" class="page">
+  <div v-if="page" class="page-shell">
     <PageBanner :title="page.title" :image="page.banner" />
-    <div class="sheet">
+    <div class="page-sheet">
       <p v-for="(paragraph, index) in page.paragraphs" :key="index">{{ paragraph }}</p>
     </div>
     <div v-if="page.advantages?.length" class="advantages">
@@ -31,17 +31,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 8px 0 48px;
-}
-.sheet {
-  padding: 28px 32px 12px;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(11, 61, 115, 0.06);
-}
 p {
   margin: 0 0 16px;
   line-height: 1.85;
@@ -80,12 +69,6 @@ article p {
 }
 
 @media (max-width: 768px) {
-  .page {
-    padding: 0 0 32px;
-  }
-  .sheet {
-    padding: 18px 16px 4px;
-  }
   .advantage-grid {
     grid-template-columns: 1fr;
   }

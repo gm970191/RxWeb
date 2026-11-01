@@ -1,4 +1,4 @@
-// 各站共用的页头图和首页轮播。站点自己配置了图片时，仍用站点的图。
+// 首页轮播的共用图。内页只有传入图片时才用照片，否则头图收成文字条。
 export const defaultPageBanner = '/shared/page-banner.png'
 
 export const defaultHeroBanners = [

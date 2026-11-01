@@ -1,5 +1,6 @@
 <template>
-  <div class="product-list-container">
+  <div class="product-list-container page-shell">
+    <PageBanner title="产品中心" />
     <div class="product-layout">
       <aside class="catalog" aria-label="产品目录">
         <button
@@ -52,6 +53,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import PageBanner from '../components/PageBanner.vue'
 import { fetchProducts, getCategories, getMockProducts } from '../services/productService'
 
 const products = ref([])
@@ -92,11 +94,6 @@ function selectCategory(category) {
 </script>
 
 <style scoped>
-.product-list-container {
-  max-width: 1200px;
-  margin: auto;
-  padding: 24px 0;
-}
 .catalog { display: none; }
 .filter-bar { margin-bottom: 16px; }
 .product-card { width: 100%; }
@@ -132,10 +129,6 @@ function selectCategory(category) {
 .pagination-bar { margin-top: 24px; text-align: center; }
 
 @media (min-width: 1100px) {
-  .product-list-container {
-    max-width: 1320px;
-  }
-
   .product-layout {
     display: grid;
     grid-template-columns: 232px minmax(0, 1fr);
@@ -180,10 +173,6 @@ function selectCategory(category) {
 }
 
 @media (max-width: 768px) {
-  .product-list-container {
-    padding: 8px 0 16px;
-  }
-
   .filter-bar,
   .category-select {
     width: 100%;

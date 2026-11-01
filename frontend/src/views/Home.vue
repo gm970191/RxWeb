@@ -1,5 +1,5 @@
 <template>
-  <div class="home-container">
+  <div class="home-container page-shell">
     <section class="hero" :class="{ photo: banners.length }">
       <el-carousel
         v-if="banners.length"
@@ -107,9 +107,7 @@ const goToNews = (id) => {
 
 <style scoped>
 .home-container {
-  max-width: 1200px;
-  margin: auto;
-  padding: 24px 0 40px 0;
+  --rx-page-bottom: 40px;
 }
 .hero {
   position: relative;
@@ -231,7 +229,7 @@ const goToNews = (id) => {
 
 @media (max-width: 768px) {
   .home-container {
-    padding: 0 0 24px;
+    --rx-page-bottom: 24px;
   }
 
   .hero {

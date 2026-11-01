@@ -41,6 +41,13 @@ svg {
   max-width: 100%;
 }
 
+:root {
+  --rx-page-width: 1200px;
+  --rx-banner-height: 220px;
+  --rx-banner-offset: 8px;
+  --rx-page-bottom: 32px;
+}
+
 .app-container {
   min-height: 100vh;
   display: flex;
@@ -53,6 +60,19 @@ svg {
   min-width: 0;
 }
 
+.page-shell {
+  max-width: var(--rx-page-width);
+  margin: 0 auto;
+  padding: var(--rx-banner-offset) 0 var(--rx-page-bottom);
+}
+
+.page-sheet {
+  padding: 28px 32px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(11, 61, 115, 0.06);
+}
+
 .table-scroll {
   width: 100%;
   overflow-x: auto;
@@ -60,6 +80,16 @@ svg {
 }
 
 @media (max-width: 768px) {
+  :root {
+    --rx-banner-height: 160px;
+    --rx-banner-offset: 0px;
+    --rx-page-bottom: 16px;
+  }
+
+  .page-sheet {
+    padding: 18px 16px;
+  }
+
   .el-main {
     padding: 12px;
   }

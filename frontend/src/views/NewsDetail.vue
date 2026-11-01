@@ -1,11 +1,10 @@
 <template>
-  <div class="news-detail-container">
-    <nav class="crumb" aria-label="当前位置">
-      <router-link to="/news">新闻动态</router-link>
-      <span class="sep" aria-hidden="true">/</span>
-      <span aria-current="page">详情</span>
-    </nav>
-    <PageBanner title="新闻详情" :as-heading="false" />
+  <div class="news-detail-container page-shell">
+    <PageBanner
+      title="新闻详情"
+      :as-heading="false"
+      :crumbs="[{ label: '新闻动态', to: '/news' }, { label: '详情' }]"
+    />
     <el-card v-if="news">
       <h1 class="news-title">{{ news.title }}</h1>
       <div class="news-meta">
@@ -44,29 +43,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.news-detail-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 8px 0 32px;
-}
-.crumb {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 16px;
-  font-size: 15px;
-  color: #909399;
-}
-.crumb a {
-  color: #0b3d73;
-  text-decoration: none;
-}
-.crumb a:hover {
-  color: #1d6fb8;
-}
-.sep {
-  color: #c0c4cc;
-}
 .news-title {
   font-size: 28px;
   font-weight: bold;
@@ -93,11 +69,6 @@ onMounted(async () => {
 }
 
 @media (max-width: 768px) {
-  .news-detail-container {
-    margin: 8px auto;
-    padding: 0;
-  }
-
   .news-title {
     font-size: 22px;
     line-height: 1.4;

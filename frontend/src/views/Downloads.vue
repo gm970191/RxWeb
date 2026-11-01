@@ -1,5 +1,5 @@
 <template>
-  <div class="downloads-container">
+  <div class="downloads-container page-shell">
     <PageBanner title="资源下载" />
     <el-card class="box-card">
       <div class="search-bar">
@@ -85,11 +85,6 @@ const handleDownload = () => {
 </script>
 
 <style scoped>
-.downloads-container {
-  max-width: 1200px;
-  margin: auto;
-  padding: 24px 0;
-}
 .search-bar {
   margin-bottom: 8px;
 }
@@ -143,10 +138,6 @@ const handleDownload = () => {
 }
 
 @media (max-width: 768px) {
-  .downloads-container {
-    padding: 8px 0 16px;
-  }
-
   .download-item {
     flex-direction: column;
     gap: 12px;
